@@ -2,7 +2,7 @@
 
 > 前端团队 AI 辅助开发工作流 v1.0，基于原生 Agent Skills，兼容 Claude Code、OpenAI Codex、Cursor。
 >
-> 状态：v1.0.0 开发中，已通过三轮独立审查（见 `docs/2026-09-15--v1-review.md`），等待 todolist demo 按 S/M/L 完成端到端验收后打 tag。
+> 状态：v1.0.0 开发中。本 README 描述的是当前最新设计；等待 todolist demo 按 S/M/L 完成端到端验收后打 tag。
 
 ## 设计原则
 
@@ -65,17 +65,6 @@ git add -A && git commit -m "chore: add fe-ai-workflow"
 `npm pkg set scripts.postinstall=".workflow/fe-ai-workflow/scripts/install.sh .workflow/fe-ai-workflow . || true"`；
 已有 postinstall（husky、patch-package、prisma generate 等）时，改为 `原命令 && (.workflow/fe-ai-workflow/scripts/install.sh .workflow/fe-ai-workflow . || true)`，不要覆盖原命令，也不要让 `|| true` 吞掉原命令的失败。
 
-### 从 v0.8.x 升级
-
-v0 的 `upgrade-workflow.sh` 依赖已删除的 `sync-workflow.sh`，不能直接用。步骤：
-
-```bash
-cd .workflow/fe-ai-workflow && git fetch --tags && git checkout <版本 tag> && cd ../..
-.workflow/fe-ai-workflow/scripts/install.sh .workflow/fe-ai-workflow . --migrate
-```
-
-`--migrate` 只删除 v0.8.x 实际分发过的文件（`skills/01-*`…`09-*`、`using-fe-workflow`、`references/` 中的 4 个规范、`.claude/commands/viktor/` 中的 9 个命令、`.cursor/rules/workflow.mdc`），不碰用户自己的文件。业务项目 `docs/` 下的 v0 产物（specs / plans / contracts / reviews / adrs / project-context 等）不会被删除，由你决定保留或清理。
-
 安装脚本会写入：
 
 ```
@@ -88,7 +77,7 @@ CLAUDE.md                     # 标记段内一行 @AGENTS.md；CLAUDE.md 是软
 
 Cursor 会同时扫描 `.agents/skills` 和 `.claude/skills`，是否对同名技能去重未经确认；如果出现重复，删除 `.claude/skills/viktor-*` 不影响 Cursor 使用。
 
-v1 内升级：`.workflow/fe-ai-workflow/scripts/upgrade.sh v1.x.x`
+升级到新版本：`.workflow/fe-ai-workflow/scripts/upgrade.sh <版本 tag>`
 
 ### 门禁工作方式
 

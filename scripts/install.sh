@@ -57,7 +57,7 @@ if [[ $MIGRATE -eq 1 ]]; then
   echo "已清理 v0.8.x 安装痕迹（docs/ 下的 v0 产物未动，请自行决定保留或删除）"
 fi
 
-# 1. skills
+# 1. skills + prompts（prompts 由 viktor-spawn.sh 从工作流目录读取，无需拷贝）
 for base in .claude/skills .agents/skills; do
   mkdir -p "$DST/$base"
   for s in "$SRC"/skills/viktor-*; do

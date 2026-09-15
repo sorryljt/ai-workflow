@@ -9,6 +9,8 @@ description: 把需求变成一份经用户确认的轻量计划（docs/changes/
 
 ## 档位差异
 
+- S 档：本节点不需要人工确认，由 viktor-code 自动生成 5 行的 plan.md（问题描述、tier、一条 AC）。
+
 - M 档：写目标、方案、影响范围、验收标准、假设；不拆任务清单，验收标准即进度清单。
 - L 档：在 M 档基础上增加任务清单。
 
@@ -21,15 +23,19 @@ description: 把需求变成一份经用户确认的轻量计划（docs/changes/
 1. **收集上下文**：读取 AGENTS.md 的项目信息，以及 `docs/knowledge/` 中与本需求相关的条目。需要了解代码时直接读代码。
 2. **只问会改变方案的问题**：能从代码或上下文推断的，直接作为假设写进计划。确实需要用户决定的，一次性提出，最多 3 个。
 3. **写 plan.md**：路径 `docs/changes/YYYY-MM-DD--<slug>/plan.md`，slug 用英文 kebab-case（例如 `filter-by-status`）。该需求已有目录时在原文件上更新。
-4. **确认**：向用户展示摘要（目标、关键决策、验收标准、假设），用户确认后把 `status` 改为 `confirmed`。假设随计划一起确认。
+4. **确认**：向用户展示摘要（目标、关键决策、验收标准、假设），用户确认后把 `status` 改为 `confirmed`，`stage: plan`，`stage_result: ok`。假设随计划一起确认。
 
 ## plan.md 模板
 
 ```markdown
 ---
-status: draft        # draft | confirmed | in-progress | done
-tier: M              # M | L
+status: draft        # draft | confirmed | in-progress | done | archived
+tier: M              # S | M | L
+stage: plan          # plan | code | review | check | ship | done（最近完成或停住的节点）
+stage_result: ok     # ok | blocked | error
+review_round: 0
 created: YYYY-MM-DD
+updated: YYYY-MM-DD
 ---
 
 # <需求名>

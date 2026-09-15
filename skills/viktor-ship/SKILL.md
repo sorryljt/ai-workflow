@@ -1,6 +1,6 @@
 ---
 name: viktor-ship
-description: 收尾一个需求：只沉淀代码里读不出来的知识（决策、踩坑、业务术语）到 docs/knowledge/，按需更新 CHANGELOG，并标记需求完成。用户输入 /viktor-ship 或提到 viktor-ship，或者 M/L 档 review 通过后准备收尾时使用。
+description: 收尾一个需求：生成交付报告 report.md（本轮做了什么、待人工确认项），沉淀非推导知识到 docs/knowledge/，按需更新 CHANGELOG，标记需求完成。用户输入 /viktor-ship 或提到 viktor-ship，或者 review / check 完成后准备收尾时使用。
 ---
 
 # viktor-ship：收尾与知识沉淀
@@ -30,4 +30,29 @@ description: 收尾一个需求：只沉淀代码里读不出来的知识（决�
 
    新条目推翻或修改已有条目时，直接改原条目并注明变更原因，不让矛盾的记录并存。
 4. **CHANGELOG**：项目有 CHANGELOG.md 时，在 `[Unreleased]` 下添加面向用户的变更描述。
-5. **收尾**：把 plan.md 的 `status` 改为 `done`，输出小结：改了什么、如何验证的、沉淀了哪些知识、建议的 commit message。
+5. **交付报告**：写入 `docs/changes/<…>/report.md`，并在对话中原样展示。只统计本需求目录的内容。
+
+   ```markdown
+   # 交付报告：<需求名>（<档位>）
+
+   ## 待人工确认
+   - 👀 AC-3：<手动验证步骤>（来自 check.md）
+   - 未执行的节点：review（原因：…）        # 只有确实没做时才列
+
+   ## 本轮做了什么
+   | 项 | 做了什么 | 改动文件 | 验证方式 | 结果 |
+   |----|---------|---------|---------|------|
+   | AC-1 | … | src/a.ts, src/a.test.ts | vitest | ✅ |
+   | 人工修改 | <根据 git 记录识别的非 AI 改动> | … | — | — |
+
+   ## 审查记录
+   review <n> 轮，发现并修复 <m> 个 BLOCKING；剩余 SUGGESTED：…
+
+   ## 沉淀的知识
+   - decisions：…
+
+   ## 建议的 commit message
+   ```
+
+   review.md / check.md 缺失时对应章节写“未执行”，不阻塞。
+6. **收尾**：把 plan.md 的 `status` 改为 `done`、`stage: done`、更新 `updated`。

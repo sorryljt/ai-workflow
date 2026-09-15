@@ -25,6 +25,7 @@ description: 首次接入 viktor 工作流时初始化项目：探测技术栈�
    lint: pnpm eslint .
    test: pnpm vitest run
    e2e: pnpm playwright test
+   dev: pnpm dev
    ```
 
    ### 约定（只写不明显的）
@@ -38,7 +39,7 @@ description: 首次接入 viktor 工作流时初始化项目：探测技术栈�
    - 每行 `key: 命令`，命令必须单行、非交互、非 watch 模式（例如用 `vitest run` 而不是 `vitest`）。
    - 项目没有的检查直接省略该行，不写占位符。
    - monorepo：AGENTS.md 放在哪个目录，命令就在哪个目录执行；会话从子包启动时优先读子包的 AGENTS.md。
-   - `e2e` 供 viktor-code / viktor-review 手动运行，hook 不执行。
+   - `e2e`、`dev` 供 viktor-code / viktor-check 使用，hook 不执行。
 5. **创建知识目录**：`docs/knowledge/decisions.md`、`pitfalls.md`、`glossary.md`，已存在的跳过，缺失的只写一行标题。
 
 ## 重复执行

@@ -9,9 +9,17 @@
 
 破坏性重构。按当前 Agent 能力重新设计，不再依赖 superpowers 的调度机制。
 
+### Added（2026-09-16）
+
+- **viktor-flow**：一个入口跑完整流程，M/L 档只在 plan 确认时停；不带参数续接自己未完成的需求（继续 / 归档 / 忽略，14 天内，别人的静默）。五个停车点，统一停车卡。
+- **viktor-check**：独立进程以用户视角逐条验证 AC（e2e → 浏览器操作 → 手动步骤），输出 check.md。
+- **独立审查**：viktor-review 改为派单器，`scripts/viktor-spawn.sh` 用 `claude -p` / `codex exec` 起新进程审查，按档位限制深度，最多 2 轮复审；提示词固化在 `prompts/`。
+- **交付报告**：viktor-ship 生成 report.md，待人工确认项放最前。
+- plan.md frontmatter 新增 `stage` / `stage_result` / `review_round` / `updated`；S 档也自动建 plan.md，续接逻辑统一。
+
 ### Changed
 
-- **节点 9 → 5**：init / plan / code / review / ship。think 与 plan 合并为 plan；contract 并入 plan/code（类型定义作为第一个任务直接写进 src）；删除 context、digest。
+- **节点 9 → 7**：flow / init / plan / code / review / check / ship。think 与 plan 合并为 plan；contract 并入 plan/code（类型定义作为第一个任务直接写进 src）；删除 context、digest。
 - **原生 Agent Skills**：5 个节点均为标准 SKILL.md，安装到 `.claude/skills/`（Claude Code）和 `.agents/skills/`（Codex、Cursor）；技能名三端一致，调用前缀按端区分（Claude Code / Cursor `/viktor-xxx`，Codex `$viktor-xxx`）。
 - **S/M/L 分档**：小改动只走 code → review。
 - **门禁改为 hook**：Claude Code Stop hook 自动运行 AGENTS.md `viktor-checks` 块中的 typecheck / lint / test，失败反馈给 Agent，连续 3 次后放行并提示用户；其他工具手动运行。

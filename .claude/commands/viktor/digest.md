@@ -1,1 +1,0 @@
-../../../commands/viktor/digest.md

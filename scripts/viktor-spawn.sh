@@ -39,7 +39,7 @@ TIER="${TIER:-S}"
 MAIN="${MAIN:-main}"
 BASE="$(git merge-base HEAD "$MAIN" 2>/dev/null || git rev-parse HEAD 2>/dev/null || echo HEAD)"
 
-PROMPT="$(sed -e "s#{{CHANGES_DIR}}#$DIR#g" -e "s#{{TIER}}#$TIER#g" -e "s#{{DIFF_BASE}}#$BASE#g" -e "s#{{MAIN_BRANCH}}#$MAIN#g" "$PROMPT_TPL")"
+PROMPT="$(sed -e "s#{{CHANGES_DIR}}#$DIR#g" -e "s#{{TIER}}#$TIER#g" -e "s#{{DIFF_BASE}}#$BASE#g" -e "s#{{MAIN_BRANCH}}#$MAIN#g" -e "s#{{WORKFLOW_DIR}}#$WF#g" "$PROMPT_TPL")"
 printf '%s\n' "$PROMPT" > "$DIR/.$ROLE.prompt.md"
 
 # 选择 CLI

@@ -5,6 +5,7 @@
 - 需求目录：{{CHANGES_DIR}}（plan.md 中的验收标准；S 档为问题描述）
 - 档位：{{TIER}}
 - 项目 AGENTS.md 的 ```viktor-checks 块：`e2e`（若有）、`dev`（若有）
+- 相关业务口径：`bash {{WORKFLOW_DIR}}/scripts/knowledge.sh lookup <AC 涉及的路径或关键词>`（glossary 条目里有判定口径）
 
 ## 验证方式（按优先级选一种，每条 AC 单独选）
 

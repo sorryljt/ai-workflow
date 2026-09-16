@@ -42,7 +42,7 @@ description: 首次接入 viktor 工作流时初始化项目：探测技术栈�
    - `e2e`、`dev` 供 viktor-code / viktor-check 使用，hook 不执行。
 5. **放行检查命令**：review / check 在独立进程（`claude -p`）中运行，不继承当前会话的授权。把 `viktor-checks` 里的每条命令（`dev` 除外）写进 `.claude/settings.json` 的 `permissions.allow`，形如 `Bash(npm test)`、`Bash(npm run typecheck)`；测试框架的直接调用也放行一条（例如 `Bash(npx vitest run:*)`）。已有的规则保留，不重复添加。`install.sh` / `upgrade.sh` 合并 settings.json 时只替换 viktor-gate 的 hook 条目，`permissions` 原样保留。
 6. **确保有基线 commit**：`git rev-parse HEAD` 失败（仓库还没有任何提交）时，提示用户先提交一次，否则独立审查拿不到 diff。
-7. **创建知识目录**：`docs/knowledge/decisions.md`、`pitfalls.md`、`glossary.md`，已存在的跳过，缺失的只写一行标题。
+7. **创建知识目录**：运行 `bash <workflow-dir>/scripts/knowledge.sh rebuild` 生成 `docs/knowledge/index.md`（目录不存在会创建）。若发现旧格式的 `docs/knowledge/decisions.md` / `pitfalls.md` / `glossary.md`，先运行 `knowledge.sh migrate` 拆成条目文件。
 
 ## 节点卡（完成后只输出这个）
 

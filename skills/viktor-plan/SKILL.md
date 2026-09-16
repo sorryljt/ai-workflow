@@ -20,7 +20,7 @@ description: 把需求变成一份经用户确认的轻量计划（docs/changes/
 
 ## 步骤
 
-1. **收集上下文**：读取 AGENTS.md 的项目信息，以及 `docs/knowledge/` 中与本需求相关的条目。需要了解代码时直接读代码。
+1. **收集上下文**：读取 AGENTS.md 的项目信息；用 `bash <workflow-dir>/scripts/knowledge.sh lookup <可能涉及的文件路径> <需求关键词>` 取相关知识（不要直接读 `docs/knowledge/` 下的文件）。需要了解代码时直接读代码。
 2. **只问会改变方案的问题**：能从代码或上下文推断的，直接作为假设写进计划。确实需要用户决定的，一次性提出，最多 3 个。
 3. **写 plan.md**：路径 `docs/changes/YYYY-MM-DD--<slug>/plan.md`，slug 用英文 kebab-case（例如 `filter-by-status`）。该需求已有目录时在原文件上更新。
 4. **确认**：这一步的输出只有下面这张卡，卡外不写任何段落。用户确认后把 `status` 改为 `confirmed`，`stage: plan`，`stage_result: ok`。

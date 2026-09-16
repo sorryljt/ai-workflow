@@ -17,7 +17,7 @@
 ### 约定
 
 - 需求产物放在 `docs/changes/YYYY-MM-DD--<slug>/`（slug 用英文 kebab-case）：plan.md、review.md、check.md、report.md。plan.md frontmatter 的 `status` / `stage` / `stage_result` 是需求状态的唯一来源；每个节点只从磁盘取输入，人随时可以停、插话、手工修改，之后用 viktor-flow 续接。
-- Agent 能直接读代码，所以不维护组件清单、接口清单；`docs/knowledge/`（decisions / pitfalls / glossary）只放代码里读不出来的知识。开始任务前按需读取相关条目。
+- Agent 能直接读代码，所以不维护组件清单、接口清单；`docs/knowledge/` 只放代码里读不出来的知识（decisions / pitfalls / glossary，一条一个文件）。取知识只用 `bash .workflow/fe-ai-workflow/scripts/knowledge.sh lookup <路径或关键词>`，不要整目录读。
 - M/L 档：plan 经用户确认之前，不写实现代码。
 - review 和 check 在独立进程中执行（`scripts/viktor-spawn.sh`），避免自己审自己。
 - 所有“已完成”“已通过”的说法，都要有本轮真实运行命令的输出作为依据。

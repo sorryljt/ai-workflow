@@ -14,6 +14,7 @@ done
 [[ -x hooks/viktor-gate.sh ]] && ok "hook 脚本可执行" || bad "hook 脚本不可执行"
 for r in review check; do [[ -f prompts/$r.md ]] && grep -q "{{CHANGES_DIR}}" prompts/$r.md && ok "prompts/$r.md 存在且含变量" || bad "prompts/$r.md 缺失或无变量"; done
 [[ -x scripts/viktor-spawn.sh ]] && ok "viktor-spawn.sh 可执行" || bad "viktor-spawn.sh 不可执行"
+[[ -x scripts/knowledge.sh ]] && ok "knowledge.sh 可执行" || bad "knowledge.sh 不可执行"
 grep -q viktor-gate.sh hooks/settings.snippet.json && ok "settings 片段引用 hook" || bad "settings 片段未引用 hook"
 [[ $(wc -l < templates/AGENTS.snippet.md) -le 45 ]] && ok "入口片段 ≤40 行" || bad "入口片段过长"
 res=$(grep -rnE "viktor:[a-z]|superpowers|workflow\.mdc|1% 规则|反理由|活文档|/viktor-(think|cr|doc|contract|context|digest)" skills templates hooks README.md 2>/dev/null | grep -v "从 v0.8.x 升级\|migrate\|upgrade-workflow\|v0 的" || true)

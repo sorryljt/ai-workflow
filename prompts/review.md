@@ -17,7 +17,7 @@
   - S：只看 diff；重跑 test；不做实验。
   - M：对照 plan.md 的每条验收标准；重跑 test；只对 diff 触及的边界条件做最小实验。
   - L：同 M；另外允许对持久化、并发、安全相关的改动在临时目录做隔离实验。实验用完即删。
-- 先读 docs/knowledge/ 中与本次改动相关的条目，改动若违反其中的决策或踩坑记录，记为 BLOCKING。
+- 先运行 `bash {{WORKFLOW_DIR}}/scripts/knowledge.sh lookup <diff 涉及的文件路径>` 取相关知识（不要整目录读），改动若违反其中的决策或踩坑记录，记为 BLOCKING。
 
 ## 审查项
 

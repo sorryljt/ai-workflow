@@ -17,6 +17,10 @@
 - **交付报告**：viktor-ship 生成 report.md，待人工确认项放最前。
 - plan.md frontmatter 新增 `stage` / `stage_result` / `review_round` / `updated`；S 档也自动建 plan.md，续接逻辑统一。
 
+### Added（2026-09-16，知识库）
+
+- 知识库改为一条一个文件（`<类型>/YYYY-MM/<slug>.md`）+ `index.md`；`scripts/knowledge.sh` 提供 lookup（按适用范围 / 关键词确定性检索）、add、supersede、rebuild（路径失效标 ?）、migrate。各节点与 review / check 提示词改为只读命中的条目。
+
 ### Fixed（2026-09-16，todolist demo 第一轮后）
 
 - viktor-init 把 `viktor-checks` 命令写入 `.claude/settings.json` permissions.allow，独立进程可直接跑检查；仓库无 commit 时提示先建基线。

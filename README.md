@@ -106,10 +106,15 @@ docs/
 │   ├── check.md       # 独立验收结果
 │   └── report.md      # 交付报告
 └── knowledge/
-    ├── decisions.md   # 有被否决备选方案、且理由从代码看不出来的决策
-    ├── pitfalls.md    # 踩坑、必须确认事项、高危约束
-    └── glossary.md    # 业务术语、枚举语义、隐含规则
+    ├── index.md               # 每条一行：类型 | 状态 | 标题 | 适用范围 | 路径（脚本维护）
+    ├── decisions/YYYY-MM/*.md # 有被否决备选方案、且理由从代码看不出来的决策
+    ├── pitfalls/YYYY-MM/*.md  # 踩坑、必须确认事项、高危约束
+    └── glossary/YYYY-MM/*.md  # 业务术语、枚举语义、隐含规则
 ```
+
+### 知识库怎么用
+
+知识只会越积越多，所以不整目录读。每条知识一个文件，frontmatter 里的 `scope` 写它约束的文件路径 / 模块 / 场景；各节点用 `scripts/knowledge.sh lookup <改动涉及的路径> <关键词>` 做确定性检索，只读命中的条目，成本与知识总量无关。被推翻的条目标 `superseded` 保留历史，默认不检索；`rebuild` 时 scope 里的路径已不存在会在索引里标 `?` 提示复核。旧格式的三个大文件用 `knowledge.sh migrate` 拆分。
 
 ## 仓库结构
 
@@ -118,8 +123,8 @@ skills/viktor-*/SKILL.md       # 唯一真相源（flow / init / plan / code / r
 prompts/review.md | check.md   # 独立进程使用的审查 / 验收提示词
 hooks/                         # Stop hook 门禁脚本与 settings 片段
 templates/AGENTS.snippet.md    # 注入业务项目的入口段
-scripts/install.sh | upgrade.sh | validate.sh | viktor-spawn.sh
-scripts/install.test.sh | spawn.test.sh
+scripts/install.sh | upgrade.sh | validate.sh | viktor-spawn.sh | knowledge.sh
+scripts/install.test.sh | spawn.test.sh | knowledge.test.sh
 ```
 
 开发本仓库：`bash scripts/validate.sh` 校验结构，`bash scripts/install.test.sh` 跑安装与 hook 测试，`bash scripts/spawn.test.sh` 跑独立进程派发测试。

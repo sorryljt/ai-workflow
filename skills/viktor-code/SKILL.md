@@ -49,4 +49,4 @@ description: 以测试驱动的方式实现需求或修复 bug，每一步都提
 
 执行过程中每完成一个 AC 或任务输出一行 `· AC-n ✔ <测试名>`，不输出别的。单独运行时最后一行改为"输入 /viktor-review 继续"。
 
-用户在本节点中途给出的补充要求或改动说明，追加到 plan.md 的“变更记录”。发现计划不成立或需升档时，`stage_result: blocked` 并输出停车卡（格式见 viktor-flow）。
+用户在本节点中途给出的补充要求或改动说明，追加到 plan.md 的“变更记录”。发现计划不成立或需升档时，`stage_result: blocked` 并输出需要处理卡（格式见 viktor-flow）。

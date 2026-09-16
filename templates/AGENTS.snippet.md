@@ -10,7 +10,7 @@
 | M | 不新增持久化数据结构，涉及单个模块，2～5 个验收标准 | plan（人确认）→ code → review → check → ship |
 | L | 新增或修改数据模型 / 持久化结构，或跨两个以上模块，或需要拆成多个任务 | plan（含任务清单，人确认）→ code → review → check → ship |
 
-给出完整需求时优先用 viktor-flow 跑完整流程；用户说“继续”“接着上次的”时用 viktor-flow 续接。做到一半发现范围超出档位：停下来说明，建议升档。
+给出完整需求时优先用 viktor-flow 跑完整流程；用户说“继续”“接着上次的”时用 viktor-flow 续接。做到一半发现范围超出档位：停下来说明，建议升档。流程停下时只输出待确认卡或需要处理卡，卡片之外不写段落，卡里不写续接命令。
 
 调用方式：Claude Code、Cursor 输入 `/viktor-flow` 等；Codex 输入 `$viktor-flow`；或用自然语言描述意图。首次接入先运行 viktor-init。
 

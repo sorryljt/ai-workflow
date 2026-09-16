@@ -11,7 +11,7 @@ description: 一个入口跑完整个开发流程（判档 → plan → code →
 
 1. 判档并用一句话声明（S / M / L，判据见 AGENTS.md），用户可以改。
 2. S 档：viktor-code → viktor-review → viktor-check → viktor-ship，中间不停。
-3. M/L 档：viktor-plan → **停车（等用户确认 plan）** → viktor-code → viktor-review → viktor-check → viktor-ship。
+3. M/L 档：viktor-plan → **等用户确认 plan** → viktor-code → viktor-review → viktor-check → viktor-ship。
 4. 不检查旧需求，不提示旧尾巴。目录名冲突时自动加 `-2`、`-3` 后缀。
 
 ### `/viktor-flow`（无参数）或“继续”：续接
@@ -29,16 +29,16 @@ description: 一个入口跑完整个开发流程（判档 → plan → code →
 | plan | ok（且 status: confirmed） | code |
 | plan | 其他 | 等待确认 plan |
 | code | ok | review |
-| code | blocked | 停车（计划偏离/升档），处理后从 code 继续 |
+| code | blocked | 需要处理（计划偏离/升档），处理后从 code 继续 |
 | review | ok | check |
-| review | blocked | 停车（复审超阈值），用户修完后从 review（复审）继续 |
+| review | blocked | 需要处理（复审超阈值），用户修完后从 review（复审）继续 |
 | check | ok | ship |
-| check | blocked | 停车（验收失败），用户修完后从 check 继续 |
+| check | blocked | 需要处理（验收失败），用户修完后从 check 继续 |
 | ship | ok | done |
 
-## 停车点（只有这五处会停）
+## 只在这五处停下
 
-| 停车点 | 触发条件 |
+| 停下的地方 | 触发条件 |
 |---|---|
 | plan 确认 | M/L 档 plan 写完 |
 | 缺前置 | AGENTS.md 无 viktor-checks 块 / 无测试框架 → 建议先 viktor-init |
@@ -46,17 +46,22 @@ description: 一个入口跑完整个开发流程（判档 → plan → code →
 | 审查超阈值 | 2 轮复审后仍有 BLOCKING |
 | 验收失败 | check 修复一次后仍 ❌，或 AC 无法验证 |
 
-停车卡格式（所有节点统一）：
+流程停下来时只有两种卡；卡里不写续接命令（续接是使用规则，README 里说明一次即可）：
+
+**待确认卡**（plan 写完，格式见 viktor-plan）：`━━ ⏸ PLAN 待确认 · <档位> · <耗时> ━━`
+
+**需要处理卡**（其余四种情况）：
 
 ```
-━━ ⏸ <节点> 停车 · <档位> · <本节点耗时> ━━━━━━━━━━━━━━
+━━ ⚠ <节点> 需要处理 · <档位> · <耗时> ━━━━━━━━━━━━━━
 原因      <一句话>
-你可以    ① <动作>  ② <动作>
+问题      <每条一行，最多 5 条；超过的在产物文件里>
 产物      docs/changes/<…>/<文件>
-继续      /viktor-flow
+回复      「再修」我再处理一轮 ／「跳过」带着问题继续 ／ 自己改完后说「继续」
 ```
 
-除停车点外不提问、不等待；review 的 SUGGESTED、check 的 👀 都不停，汇总进报告。
+"回复"行只列当前情况真实可选的动作，每个动作写清后果；不存在的选项不列。
+除这五处外不提问、不等待；review 的 SUGGESTED、check 的 👀 都不停，汇总进报告。
 
 ## 节点卡与耗时
 
@@ -67,7 +72,7 @@ description: 一个入口跑完整个开发流程（判档 → plan → code →
 结果      <一句话>
 <关键数字行，节点各异>
 产物      docs/changes/<…>/<文件>
-下一步    → <节点>（自动继续） ／ 停车（见停车卡）
+下一步    → <节点>（自动继续）
 ```
 
 节点卡之外不输出别的内容，不复述文件。被打断后磁盘状态仍然有效，用 `/viktor-flow` 续接。
@@ -76,7 +81,7 @@ description: 一个入口跑完整个开发流程（判档 → plan → code →
 
 - 对话里只输出节点卡，不复述文件内容；细节在产物文件里，卡片给出路径。
 - 卡片宽度不超过 60 列，表格不超过 5 列；数字说话，不写评价性的句子。
-- 节点卡固定五行：结果 / 关键数字 / 产物 / 下一步（自动继续或停车）。
+- 节点卡固定五行：结果 / 关键数字 / 产物 / 下一步。卡片之外只允许一行 `备注`（最多两条），不另起段落。
 
 
 ## 用户中途插话

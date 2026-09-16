@@ -23,7 +23,7 @@ description: 把需求变成一份经用户确认的轻量计划（docs/changes/
 1. **收集上下文**：读取 AGENTS.md 的项目信息，以及 `docs/knowledge/` 中与本需求相关的条目。需要了解代码时直接读代码。
 2. **只问会改变方案的问题**：能从代码或上下文推断的，直接作为假设写进计划。确实需要用户决定的，一次性提出，最多 3 个。
 3. **写 plan.md**：路径 `docs/changes/YYYY-MM-DD--<slug>/plan.md`，slug 用英文 kebab-case（例如 `filter-by-status`）。该需求已有目录时在原文件上更新。
-4. **确认**：只输出下面的确认卡，不复述 plan.md。用户确认后把 `status` 改为 `confirmed`，`stage: plan`，`stage_result: ok`。假设随计划一起确认。
+4. **确认**：这一步的输出只有下面这张卡，plan 的内容全部装进卡里，卡外不写任何段落。用户确认后把 `status` 改为 `confirmed`，`stage: plan`，`stage_result: ok`。假设随计划一起确认。
 
 ```
 ━━ ⏸ PLAN 待确认 · <档位> · <耗时> ━━━━━━━━━━━━━━━━━━━
@@ -42,8 +42,7 @@ description: 把需求变成一份经用户确认的轻量计划（docs/changes/
 假设      ① … ② …
 需要你定  无 ／ 决策 n：建议 A，理由…
 完整计划  docs/changes/<…>/plan.md
-
-回复「OK」确认，或直接说改哪一条（例如「决策 2 用 B」）
+回复      「OK」开跑 ／「决策 n 用 B」／ 直接说改哪条
 ```
 
 关键决策表只列有真实备选的决策，没有就写"无"。

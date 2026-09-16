@@ -32,7 +32,7 @@ description: 首次接入 viktor 工作流时初始化项目：探测技术栈�
    - …
 
    ### 禁区
-   - …
+   - …（不要写 ".claude/ 由安装脚本维护"：settings.json 的 permissions 由本节点维护，用户也可以手工改）
    ````
 
    `viktor-checks` 块的规则（Stop hook 会直接执行它）：
@@ -40,7 +40,7 @@ description: 首次接入 viktor 工作流时初始化项目：探测技术栈�
    - 项目没有的检查直接省略该行，不写占位符。
    - monorepo：AGENTS.md 放在哪个目录，命令就在哪个目录执行；会话从子包启动时优先读子包的 AGENTS.md。
    - `e2e`、`dev` 供 viktor-code / viktor-check 使用，hook 不执行。
-5. **放行检查命令**：review / check 在独立进程（`claude -p`）中运行，不继承当前会话的授权。把 `viktor-checks` 里的每条命令（`dev` 除外）写进 `.claude/settings.json` 的 `permissions.allow`，形如 `Bash(npm test)`、`Bash(npm run typecheck)`；测试框架的直接调用也放行一条（例如 `Bash(npx vitest run:*)`）。已有的规则保留，不重复添加。
+5. **放行检查命令**：review / check 在独立进程（`claude -p`）中运行，不继承当前会话的授权。把 `viktor-checks` 里的每条命令（`dev` 除外）写进 `.claude/settings.json` 的 `permissions.allow`，形如 `Bash(npm test)`、`Bash(npm run typecheck)`；测试框架的直接调用也放行一条（例如 `Bash(npx vitest run:*)`）。已有的规则保留，不重复添加。`install.sh` / `upgrade.sh` 合并 settings.json 时只替换 viktor-gate 的 hook 条目，`permissions` 原样保留。
 6. **确保有基线 commit**：`git rev-parse HEAD` 失败（仓库还没有任何提交）时，提示用户先提交一次，否则独立审查拿不到 diff。
 7. **创建知识目录**：`docs/knowledge/decisions.md`、`pitfalls.md`、`glossary.md`，已存在的跳过，缺失的只写一行标题。
 

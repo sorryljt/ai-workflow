@@ -15,12 +15,12 @@ description: 派发独立审查：在新进程中审查本次改动的 diff，�
 ## 步骤
 
 1. 确认有 diff（`git status`）；没有改动则说明并结束。
-2. diff 超过 800 行：不派单，输出停车卡建议分批（按任务提交一部分再审）。
+2. diff 超过 800 行：不派单，输出需要处理卡建议分批（按任务提交一部分再审）。
 3. 派单：`bash <workflow-dir>/scripts/viktor-spawn.sh review <需求目录>`（workflow-dir 通常为 `.workflow/fe-ai-workflow`）。同步等待，退出码含义：
    - 0：通过。`stage: review`、`stage_result: ok`。
    - 1：有 BLOCKING。进入修复循环（下一节）。
-   - 2：审查进程失败（超时、崩溃、无产物，或审查者报告检查命令无法执行）。不计入复审轮次。输出停车卡，附 `.review.log` 路径；若是权限问题，建议运行 /viktor-init 补齐 `.claude/settings.json` 的 permissions.allow 后 `/viktor-flow` 续接。
-   - 3：没有可用的 CLI。输出停车卡：让用户开一个新窗口，把 `.review.prompt.md` 的内容作为第一条消息发送，完成后再运行 `/viktor-flow` 续接。
+   - 2：审查进程失败（超时、崩溃、无产物，或审查者报告检查命令无法执行）。不计入复审轮次。输出需要处理卡，附 `.review.log` 路径；若是权限问题，回复行给出「运行 /viktor-init 补齐权限」的选项。
+   - 3：没有可用的 CLI。输出需要处理卡：让用户开一个新窗口，把 `.review.prompt.md` 的内容作为第一条消息发送，完成后回来说「继续」。
 4. 读取 review.md，`review_round` 加 1，只输出节点卡（有 BLOCKING 时把条目列在卡片下方，每条一行：`[BLOCKING] 位置 —— 问题`）：
 
 ```
@@ -35,7 +35,7 @@ description: 派发独立审查：在新进程中审查本次改动的 diff，�
 ## 修复循环
 
 - 有 BLOCKING 时，按 review.md 逐条修复（沿用 viktor-code 的 TDD 规则：先补测试再改），然后再次派单复审（审查者会读到已有的 review.md，进入复审模式，只审修复部分）。
-- 最多 2 轮复审（`review_round` ≤ 3）。仍有 BLOCKING：`stage_result: blocked`，输出停车卡，列出剩余问题和你的判断（实现问题还是计划问题）。
+- 最多 2 轮复审（`review_round` ≤ 3）。仍有 BLOCKING：`stage_result: blocked`，输出需要处理卡，列出剩余问题和你的判断（实现问题还是计划问题）。
 - SUGGESTED 不修，留在 review.md，由 ship 汇总进报告。
 
 ## 不在独立进程中审查的情况

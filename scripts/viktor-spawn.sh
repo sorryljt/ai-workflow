@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # viktor-spawn.sh — 在独立进程中运行 review / check
 #
-# 用法：viktor-spawn.sh <review|check> <changes-dir> [--tier S|M|L] [--main <branch>] [--background]
+# 用法：viktor-spawn.sh <review|check> <changes-dir> [--agent claude|codex] [--tier S|M|L] [--main <branch>] [--background]
+#   --agent  主会话所在的工具；子进程只用同一个工具，不做跨工具回退
 # 退出码：0 通过（check 含"仅待人工"）；1 有 BLOCKING / 失败项；2 进程失败（超时、崩溃、无产物，或产物 result: error）；3 无可用 CLI（提示词已打印，可手动开新窗口粘贴）
 #
 # 环境变量：
-#   VIKTOR_AGENT          claude | codex（默认自动检测，先 claude 后 codex）
+#   VIKTOR_AGENT          claude | codex（优先级：--agent > VIKTOR_AGENT > 环境变量 CLAUDECODE/CLAUDE_PROJECT_DIR/CODEX_* > 命令存在性）
 #   VIKTOR_CLAUDE_ARGS    传给 claude 的额外参数（默认 "--permission-mode acceptEdits"；按 shell 规则解析，含空格的参数请加引号）
 #   注意：子进程不继承会话授权，检查命令需由 viktor-init 写入 .claude/settings.json 的 permissions.allow
 #   VIKTOR_CODEX_ARGS     传给 codex exec 的额外参数（默认 "--sandbox workspace-write"）
@@ -14,9 +15,10 @@
 set -uo pipefail
 
 ROLE="${1:-}"; DIR="${2:-}"; shift 2 2>/dev/null || true
-TIER=""; MAIN=""; BG=0
+TIER=""; MAIN=""; BG=0; AGENT_ARG=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --agent) AGENT_ARG="$2"; shift 2;;
     --tier) TIER="$2"; shift 2;;
     --main) MAIN="$2"; shift 2;;
     --background) BG=1; shift;;
@@ -42,15 +44,24 @@ BASE="$(git merge-base HEAD "$MAIN" 2>/dev/null || git rev-parse HEAD 2>/dev/nul
 PROMPT="$(sed -e "s#{{CHANGES_DIR}}#$DIR#g" -e "s#{{TIER}}#$TIER#g" -e "s#{{DIFF_BASE}}#$BASE#g" -e "s#{{MAIN_BRANCH}}#$MAIN#g" -e "s#{{WORKFLOW_DIR}}#$WF#g" "$PROMPT_TPL")"
 printf '%s\n' "$PROMPT" > "$DIR/.$ROLE.prompt.md"
 
-# 选择 CLI
-AGENT="${VIKTOR_AGENT:-}"
-if [[ -z "$AGENT" ]]; then
-  if command -v claude >/dev/null 2>&1; then AGENT=claude; elif command -v codex >/dev/null 2>&1; then AGENT=codex; fi
+# 选择 CLI：主会话是谁就派谁，不做跨工具回退
+AGENT=""; WHY=""
+if [[ -n "$AGENT_ARG" ]]; then AGENT="$AGENT_ARG"; WHY="--agent 参数"
+elif [[ -n "${VIKTOR_AGENT:-}" ]]; then AGENT="$VIKTOR_AGENT"; WHY="VIKTOR_AGENT"
+elif [[ -n "${CLAUDECODE:-}" || -n "${CLAUDE_PROJECT_DIR:-}" ]]; then AGENT=claude; WHY="检测到 Claude Code 环境变量"
+elif env | grep -q '^CODEX_'; then AGENT=codex; WHY="检测到 Codex 环境变量"
+elif command -v claude >/dev/null 2>&1; then AGENT=claude; WHY="只找到 claude 命令"
+elif command -v codex >/dev/null 2>&1; then AGENT=codex; WHY="只找到 codex 命令"
 fi
-if [[ -z "$AGENT" ]] || ! command -v "$AGENT" >/dev/null 2>&1; then
+if [[ -z "$AGENT" ]]; then
   echo "未找到 claude / codex 命令行。请开一个新窗口，把以下文件内容作为第一条消息发送：$DIR/.$ROLE.prompt.md" >&2
   exit 3
 fi
+if ! command -v "$AGENT" >/dev/null 2>&1; then
+  echo "指定的工具 $AGENT（$WHY）不在 PATH 中，不回退到其他工具。手动方式：把 $DIR/.$ROLE.prompt.md 作为新窗口的第一条消息发送" >&2
+  exit 3
+fi
+echo "独立 $ROLE：使用 $AGENT（$WHY）"
 case "$AGENT" in
   claude) eval "EXTRA=(${VIKTOR_CLAUDE_ARGS:---permission-mode acceptEdits})"; CMD=(claude -p "$PROMPT" "${EXTRA[@]}");;
   codex)  eval "EXTRA=(${VIKTOR_CODEX_ARGS:---sandbox workspace-write})"; CMD=(codex exec "${EXTRA[@]}" "$PROMPT");;

@@ -16,7 +16,7 @@ description: 派发独立审查：在新进程中审查本次改动的 diff，�
 
 1. 确认有 diff（`git status`）；没有改动则说明并结束。
 2. diff 超过 800 行：不派单，输出需要处理卡建议分批（按任务提交一部分再审）。
-3. 派单：`bash <workflow-dir>/scripts/viktor-spawn.sh review <需求目录>`（workflow-dir 通常为 `.workflow/fe-ai-workflow`）。同步等待，退出码含义：
+3. 派单：`bash <workflow-dir>/scripts/viktor-spawn.sh review <需求目录> --agent <claude|codex，你当前运行所在的工具>`（workflow-dir 通常为 `.workflow/fe-ai-workflow`）。子进程只用同一个工具，不跨工具。同步等待，退出码含义：
    - 0：通过。`stage: review`、`stage_result: ok`。
    - 1：有 BLOCKING。进入修复循环（下一节）。
    - 2：审查进程失败（超时、崩溃、无产物，或审查者报告检查命令无法执行）。不计入复审轮次。输出需要处理卡，附 `.review.log` 路径；若是权限问题，回复行给出「运行 /viktor-init 补齐权限」的选项。
@@ -27,7 +27,7 @@ description: 派发独立审查：在新进程中审查本次改动的 diff，�
 ━━ ✔ REVIEW · 第 <r>/3 轮 · <耗时> ━━━━━━━━━━━━━━━━━━━
 结果      pass ／ blocked（独立进程）
 问题      BLOCKING <b> · SUGGESTED <s> · 已修复 <f>
-验收覆盖  <n>/<m> 有测试
+验收覆盖  <n>/<m> 有测试 · 知识库命中 <j> 条，违反 <v> 条
 产物      docs/changes/<…>/review.md
 下一步    → check
 ```
@@ -37,6 +37,10 @@ description: 派发独立审查：在新进程中审查本次改动的 diff，�
 - 有 BLOCKING 时，按 review.md 逐条修复（沿用 viktor-code 的 TDD 规则：先补测试再改），然后再次派单复审（审查者会读到已有的 review.md，进入复审模式，只审修复部分）。
 - 最多 2 轮复审（`review_round` ≤ 3）。仍有 BLOCKING：`stage_result: blocked`，输出需要处理卡，列出剩余问题和你的判断（实现问题还是计划问题）。
 - SUGGESTED 不修，留在 review.md，由 ship 汇总进报告。
+
+## review 与 check 的分工
+
+review 回答"代码对不对"，证据是代码和单元测试；check 回答"功能能不能用"，证据是运行起来的行为。review 不跑 e2e、不开浏览器；觉得某个行为可疑就写成 SUGGESTED 交给 check。
 
 ## 不在独立进程中审查的情况
 

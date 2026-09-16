@@ -19,6 +19,7 @@ $2
 F
   chmod +x "$T/bin/$1"
 }
+unset CLAUDECODE CLAUDE_PROJECT_DIR; for v in $(env | grep -o "^CODEX_[A-Z_]*"); do unset "$v"; done
 run(){ PATH="$T/bin:/usr/bin:/bin" VIKTOR_WORKFLOW_DIR="$ROOT" "$SPAWN" "$@"; }
 
 # 1. claude 正常写 review.md → 0；提示词中变量已替换；默认参数传入
@@ -61,6 +62,20 @@ grep -q "无法执行" "$T/err" || fail "error 时未提示"
 mkfake claude "printf -- '---\nresult: pass\n---\n' > $D/review.md"
 VIKTOR_CLAUDE_ARGS='--permission-mode acceptEdits --allowedTools "Bash(npm test)"' run review "$D" >/dev/null || fail "带引号参数应能运行"
 grep -qx "Bash(npm test)" "$T/args.claude" || fail "带引号的参数被切分"
+
+# 6c. --agent 优先；指定工具不存在时不回退（退出码 3）；环境变量检测
+mkfake claude "printf -- '---\nresult: pass\n---\n' > $D/review.md"
+mkfake codex "printf -- '---\nresult: pass\n---\n' > $D/review.md"
+rm -f "$T/args.claude" "$T/args.codex"
+run review "$D" --agent codex >/dev/null && [[ -f "$T/args.codex" && ! -f "$T/args.claude" ]] || fail "--agent codex 应只调用 codex"
+rm -f "$T/bin/codex"
+set +e; run review "$D" --agent codex >/dev/null 2>"$T/err"; rc=$?; set -e
+[[ $rc -eq 3 ]] && grep -q "不回退" "$T/err" || fail "指定工具不存在应返回 3 且不回退，实际 $rc"
+mkfake codex "printf -- '---\nresult: pass\n---\n' > $D/review.md"
+rm -f "$T/args.claude" "$T/args.codex"
+CODEX_SANDBOX=1 run review "$D" >/dev/null && [[ -f "$T/args.codex" && ! -f "$T/args.claude" ]] || fail "CODEX_* 环境变量应选 codex"
+rm -f "$T/args.claude" "$T/args.codex"
+CLAUDECODE=1 run review "$D" >/dev/null && [[ -f "$T/args.claude" && ! -f "$T/args.codex" ]] || fail "CLAUDECODE 环境变量应选 claude"
 
 # 7. VIKTOR_AGENT 强制选择；后台模式写 .done
 mkfake claude "printf -- '---\nresult: pass\n---\n' > $D/review.md"

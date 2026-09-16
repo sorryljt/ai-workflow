@@ -44,6 +44,16 @@ description: 首次接入 viktor 工作流时初始化项目：探测技术栈�
 6. **确保有基线 commit**：`git rev-parse HEAD` 失败（仓库还没有任何提交）时，提示用户先提交一次，否则独立审查拿不到 diff。
 7. **创建知识目录**：`docs/knowledge/decisions.md`、`pitfalls.md`、`glossary.md`，已存在的跳过，缺失的只写一行标题。
 
+## 节点卡（完成后只输出这个）
+
+```
+━━ ✔ INIT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+技术栈    <框架 / 测试框架 / 包管理器>
+检查命令  typecheck ✅ lint ✅ test ✅ e2e — dev ✅（已放行 <n> 条）
+产物      AGENTS.md 项目信息 · docs/knowledge/ · .claude/settings.json
+下一步    /viktor-flow <需求>
+```
+
 ## 重复执行
 
 已有“项目信息”节时，只提出与探测结果的差异，用户确认后再更新；不修改用户在其他位置写的内容。

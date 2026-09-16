@@ -18,7 +18,15 @@ description: 派发独立验收：在新进程中以用户视角逐条验证验�
    - 0：全部通过，或通过但有 👀 待人工项。`stage: check`、`stage_result: ok`。
    - 1：有 ❌。回到 viktor-code 修复一次（先补能复现失败的测试），再派单一次；仍 ❌ 则 `stage_result: blocked`，输出停车卡。
    - 2 / 3：同 viktor-review 的处理（进程失败 / 无 CLI，手动兜底文件为 `.check.prompt.md`）。
-2. 把 check.md 的表格输出到对话。
+2. 只输出节点卡（有 ❌ 时把条目列在卡片下方，每条一行）：
+
+```
+━━ ✔ CHECK · <档位> · <耗时> ━━━━━━━━━━━━━━━━━━━━━━━━
+结果      pass ／ manual ／ failed（独立进程）
+AC        ✅ <a> · 👀 <b> · ❌ <c>
+产物      docs/changes/<…>/check.md
+下一步    → ship（自动继续） ／ → 修复后重验
+```
 
 ## 之后
 

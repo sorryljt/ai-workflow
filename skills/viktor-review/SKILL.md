@@ -21,7 +21,16 @@ description: 派发独立审查：在新进程中审查本次改动的 diff，�
    - 1：有 BLOCKING。进入修复循环（下一节）。
    - 2：审查进程失败（超时、崩溃、无产物，或审查者报告检查命令无法执行）。不计入复审轮次。输出停车卡，附 `.review.log` 路径；若是权限问题，建议运行 /viktor-init 补齐 `.claude/settings.json` 的 permissions.allow 后 `/viktor-flow` 续接。
    - 3：没有可用的 CLI。输出停车卡：让用户开一个新窗口，把 `.review.prompt.md` 的内容作为第一条消息发送，完成后再运行 `/viktor-flow` 续接。
-4. 读取 review.md，把结果摘要（问题数、BLOCKING 条目）输出到对话；`review_round` 加 1。
+4. 读取 review.md，`review_round` 加 1，只输出节点卡（有 BLOCKING 时把条目列在卡片下方，每条一行：`[BLOCKING] 位置 —— 问题`）：
+
+```
+━━ ✔ REVIEW · 第 <r>/3 轮 · <耗时> ━━━━━━━━━━━━━━━━━━━
+结果      pass ／ blocked（独立进程）
+问题      BLOCKING <b> · SUGGESTED <s> · 已修复 <f>
+验收覆盖  <n>/<m> 有测试
+产物      docs/changes/<…>/review.md
+下一步    → check（自动继续） ／ → 修复后复审
+```
 
 ## 修复循环
 

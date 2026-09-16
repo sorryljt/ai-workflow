@@ -37,6 +37,16 @@ description: 以测试驱动的方式实现需求或修复 bug，每一步都提
 
 所有任务或验收标准都有对应测试或验证证据，并且完整运行一遍 `viktor-checks` 中的命令后全部通过。
 
-完成后：把 plan.md 的 `stage` 改为 `code`、`stage_result: ok`、更新 `updated`；S 档若排查中有符合 pitfalls 标准的踩坑（花了明显排查时间，或下一个 Agent 很可能再犯），追加一条到 `docs/knowledge/pitfalls.md`。在 viktor-flow 中运行时直接进入 review；单独运行时提示下一步使用 /viktor-review。
+完成后：把 plan.md 的 `stage` 改为 `code`、`stage_result: ok`、更新 `updated`；S 档若排查中有符合 pitfalls 标准的踩坑（花了明显排查时间，或下一个 Agent 很可能再犯），追加一条到 `docs/knowledge/pitfalls.md`。然后只输出节点卡：
+
+```
+━━ ✔ CODE · <档位> · <耗时> ━━━━━━━━━━━━━━━━━━━━━━━━━
+结果      AC <n>/<n> 完成
+测试      <k> passed（新增 <j>）· typecheck ✅ · lint ✅
+改动      <f> 文件 +<a> −<d>
+下一步    → review（自动继续）
+```
+
+执行过程中每完成一个 AC 或任务输出一行 `· AC-n ✔ <测试名>`，不输出别的。单独运行时最后一行改为"输入 /viktor-review 继续"。
 
 用户在本节点中途给出的补充要求或改动说明，追加到 plan.md 的“变更记录”。发现计划不成立或需升档时，`stage_result: blocked` 并输出停车卡（格式见 viktor-flow）。

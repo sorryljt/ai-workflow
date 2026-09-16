@@ -80,7 +80,7 @@ case "$cmd" in
           title=""; body=""; scope=""; source=""; date="" }
         /^## /{ flush(); title=substr($0,4); next }
         title!="" && /^- 日期：/{ line=$0; sub(/^- 日期：/,"",line); split(line,a,/ *[｜|] *来源：/); date=a[1]; source=a[2]; next }
-        title!="" && /^- 适用范围：/{ line=$0; sub(/^- 适用范围：/,"",line); gsub(/`/,"",line); gsub(/；/,",",line); scope=line; next }
+        title!="" && /^- 适用范围：/{ line=$0; sub(/^- 适用范围：/,"",line); gsub(/`/,"",line); gsub(/[；、]/,",",line); gsub(/。$/,"",line); scope=line; next }
         title!="" && /^- 内容：/{ line=$0; sub(/^- 内容：/,"",line); body=body line "\n"; next }
         title!="" { body=body $0 "\n" }
         END{ flush(); print n+0 > "/dev/stderr" }' "$file" 2>&1 | tail -1 | xargs -I{} echo "$file → {} 条"

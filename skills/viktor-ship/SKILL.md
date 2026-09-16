@@ -19,7 +19,7 @@ description: 收尾一个需求：生成交付报告 report.md（本轮做了什
 
 `docs/knowledge/` 一条知识一个文件（`<类型>/YYYY-MM/<slug>.md`），`index.md` 每条一行，由脚本维护。所有读写都通过 `bash <workflow-dir>/scripts/knowledge.sh`：
 
-- 写入：`knowledge.sh add --type decision|pitfall|glossary --title "…" --scope "src/a.ts, 模块名, 场景" --source "docs/changes/<…>/" <<'EOF'` + 正文（结论与原因，2～5 行）。scope 是检索键：写会被这条知识约束的文件路径、模块或场景，用逗号分隔，尽量具体。
+- 写入：`knowledge.sh add --type decision|pitfall|glossary --title "…" --scope "src/a.ts, 模块名, 场景" --source "docs/changes/<…>/" <<'EOF'` + 正文（结论与原因，2～5 行）。scope 是检索键：只写文件路径（`src/App.tsx`）、模块名或场景关键词（`搜索`、`查重`），用逗号分隔；不要写成句子（"src/App.tsx 的 xxx" 这种会让路径检查失效），说明放正文里。
 - 推翻旧条目：先 `add` 新条目（正文里一句话说明为什么改），再 `knowledge.sh supersede <旧条目路径> <新条目路径>`。不要直接改旧条目正文。
 - 不要手工编辑 index.md。
 

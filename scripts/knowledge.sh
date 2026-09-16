@@ -26,7 +26,7 @@ rebuild() {
     if [[ "$st" == active ]]; then
       IFS=',' read -ra parts <<<"$sc"
       for p in "${parts[@]}"; do p="$(printf '%s' "$p" | sed 's/^ *//; s/ *$//')"
-        [[ "$p" == */* || "$p" == *.* ]] && [[ ! -e "$p" ]] && flag="?"; done
+        [[ "$p" != *" "* && ( "$p" == */* || "$p" == *.* ) && ! -e "$p" ]] && flag="?"; done
     fi
     echo "$t | ${flag}${st} | $ti | $sc | ${f#"$K"/}"
   done

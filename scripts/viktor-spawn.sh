@@ -2,11 +2,12 @@
 # viktor-spawn.sh — 在独立进程中运行 review / check
 #
 # 用法：viktor-spawn.sh <review|check> <changes-dir> [--tier S|M|L] [--main <branch>] [--background]
-# 退出码：0 通过（check 含"仅待人工"）；1 有 BLOCKING / 失败项；2 进程失败（超时、崩溃、无产物）；3 无可用 CLI（提示词已打印，可手动开新窗口粘贴）
+# 退出码：0 通过（check 含"仅待人工"）；1 有 BLOCKING / 失败项；2 进程失败（超时、崩溃、无产物，或产物 result: error）；3 无可用 CLI（提示词已打印，可手动开新窗口粘贴）
 #
 # 环境变量：
 #   VIKTOR_AGENT          claude | codex（默认自动检测，先 claude 后 codex）
-#   VIKTOR_CLAUDE_ARGS    传给 claude 的额外参数（默认 "--permission-mode acceptEdits"）
+#   VIKTOR_CLAUDE_ARGS    传给 claude 的额外参数（默认 "--permission-mode acceptEdits"；按 shell 规则解析，含空格的参数请加引号）
+#   注意：子进程不继承会话授权，检查命令需由 viktor-init 写入 .claude/settings.json 的 permissions.allow
 #   VIKTOR_CODEX_ARGS     传给 codex exec 的额外参数（默认 "--sandbox workspace-write"）
 #   VIKTOR_SPAWN_TIMEOUT  秒，默认 480
 #   VIKTOR_WORKFLOW_DIR   工作流仓库目录（默认取本脚本所在仓库），用于定位 prompts/
@@ -51,8 +52,8 @@ if [[ -z "$AGENT" ]] || ! command -v "$AGENT" >/dev/null 2>&1; then
   exit 3
 fi
 case "$AGENT" in
-  claude) read -r -a EXTRA <<<"${VIKTOR_CLAUDE_ARGS:---permission-mode acceptEdits}"; CMD=(claude -p "$PROMPT" "${EXTRA[@]}");;
-  codex)  read -r -a EXTRA <<<"${VIKTOR_CODEX_ARGS:---sandbox workspace-write}"; CMD=(codex exec "${EXTRA[@]}" "$PROMPT");;
+  claude) eval "EXTRA=(${VIKTOR_CLAUDE_ARGS:---permission-mode acceptEdits})"; CMD=(claude -p "$PROMPT" "${EXTRA[@]}");;
+  codex)  eval "EXTRA=(${VIKTOR_CODEX_ARGS:---sandbox workspace-write})"; CMD=(codex exec "${EXTRA[@]}" "$PROMPT");;
   *) echo "不支持的 VIKTOR_AGENT：$AGENT" >&2; exit 2;;
 esac
 
@@ -76,6 +77,7 @@ verify() {
     review:pass|check:pass) echo "$ROLE 通过：$OUT"; return 0;;
     check:manual) echo "$ROLE 通过，有待人工项：$OUT"; return 0;;
     review:blocked|check:failed) echo "$ROLE 有问题：$OUT"; return 1;;
+    *:error) echo "$ROLE 无法执行（见 $OUT 的说明，通常是检查命令未放行）" >&2; return 2;;
     *) echo "$OUT 的 result 字段无法识别（$res）" >&2; return 2;;
   esac
 }

@@ -54,6 +54,14 @@ grep -q "^exec$" "$T/args.codex" && grep -q -- "--sandbox" "$T/args.codex" || fa
 mkfake codex "printf -- '---\nresult: failed\n---\n' > $D/check.md"
 set +e; run check "$D" >/dev/null; rc=$?; set -e; [[ $rc -eq 1 ]] || fail "check failed 应返回 1"
 
+# 6b. result: error → 2；VIKTOR_CLAUDE_ARGS 含引号参数按 shell 规则解析
+mkfake claude "printf -- '---\nresult: error\n---\n无法执行 npm test\n' > $D/review.md"
+set +e; run review "$D" >/dev/null 2>"$T/err"; rc=$?; set -e; [[ $rc -eq 2 ]] || fail "result: error 应返回 2，实际 $rc"
+grep -q "无法执行" "$T/err" || fail "error 时未提示"
+mkfake claude "printf -- '---\nresult: pass\n---\n' > $D/review.md"
+VIKTOR_CLAUDE_ARGS='--permission-mode acceptEdits --allowedTools "Bash(npm test)"' run review "$D" >/dev/null || fail "带引号参数应能运行"
+grep -qx "Bash(npm test)" "$T/args.claude" || fail "带引号的参数被切分"
+
 # 7. VIKTOR_AGENT 强制选择；后台模式写 .done
 mkfake claude "printf -- '---\nresult: pass\n---\n' > $D/review.md"
 mkfake codex "exit 9"

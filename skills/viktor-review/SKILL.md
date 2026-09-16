@@ -19,7 +19,7 @@ description: 派发独立审查：在新进程中审查本次改动的 diff，�
 3. 派单：`bash <workflow-dir>/scripts/viktor-spawn.sh review <需求目录>`（workflow-dir 通常为 `.workflow/fe-ai-workflow`）。同步等待，退出码含义：
    - 0：通过。`stage: review`、`stage_result: ok`。
    - 1：有 BLOCKING。进入修复循环（下一节）。
-   - 2：审查进程失败。输出停车卡，附日志路径，建议重试或手动。
+   - 2：审查进程失败（超时、崩溃、无产物，或审查者报告检查命令无法执行）。不计入复审轮次。输出停车卡，附 `.review.log` 路径；若是权限问题，建议运行 /viktor-init 补齐 `.claude/settings.json` 的 permissions.allow 后 `/viktor-flow` 续接。
    - 3：没有可用的 CLI。输出停车卡：让用户开一个新窗口，把 `.review.prompt.md` 的内容作为第一条消息发送，完成后再运行 `/viktor-flow` 续接。
 4. 读取 review.md，把结果摘要（问题数、BLOCKING 条目）输出到对话；`review_round` 加 1。
 

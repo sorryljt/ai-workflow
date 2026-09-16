@@ -56,9 +56,9 @@ description: 一个入口跑完整个开发流程（判档 → plan → code →
 
 除停车点外不提问、不等待；review 的 SUGGESTED、check 的 👀 都不停，汇总进报告。
 
-## 进度输出
+## 进度输出与耗时
 
-每个节点完成时输出一行：`✔ <节点> 完成 — <一句话结果>`，便于用户随时打断。被打断后磁盘状态仍然有效，用 `/viktor-flow` 续接。
+每个节点开始时记下时间（`date +%H:%M:%S`），完成时输出一行：`✔ <节点> 完成（<耗时>）— <一句话结果>`，并把耗时追加到 plan.md frontmatter 的 `timing` 字段（例如 `timing: {plan: 4m, code: 9m, review: 3m×2, check: 3m, ship: 1m}`）。这行是用户随时打断的依据，也是 report 的耗时数据来源。被打断后磁盘状态仍然有效，用 `/viktor-flow` 续接。
 
 ## 用户中途插话
 

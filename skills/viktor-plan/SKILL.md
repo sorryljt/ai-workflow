@@ -34,6 +34,7 @@ tier: M              # S | M | L
 stage: plan          # plan | code | review | check | ship | done（最近完成或停住的节点）
 stage_result: ok     # ok | blocked | error
 review_round: 0
+timing: {}            # 各节点耗时，由 flow 追加
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---

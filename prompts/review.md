@@ -21,7 +21,7 @@
 
 ## 审查项
 
-1. 检查命令：test 失败直接 BLOCKING。
+1. 检查命令：test 失败直接 BLOCKING。**命令无法执行**（权限被拒、命令不存在、环境缺失）不是代码问题：立即写 review.md，frontmatter `result: error`，正文只写无法执行的原因和原始报错，然后退出，不要继续审查。
 2. 验收覆盖：每条验收标准是否有对应测试或验证动作（S 档对照问题描述，确认存在回归测试）。
 3. 正确性：边界条件、异常处理、异步与竞态、状态一致性、已有持久化数据的兼容。
 4. 安全：XSS、敏感信息泄露、鉴权绕过、不可信输入。
@@ -39,7 +39,7 @@
 
 ```markdown
 ---
-result: pass         # pass | blocked
+result: pass         # pass | blocked | error（检查命令无法执行）
 reviewed: YYYY-MM-DD
 round: 1
 independent: true

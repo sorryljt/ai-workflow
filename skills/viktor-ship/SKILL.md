@@ -48,6 +48,9 @@ description: 收尾一个需求：生成交付报告 report.md（本轮做了什
    ## 审查记录
    review <n> 轮，发现并修复 <m> 个 BLOCKING；剩余 SUGGESTED：…
 
+   ## 耗时
+   plan 4m（含等待确认）/ code 9m / review 3m×2 / check 3m / ship 1m，合计 …（来自 plan.md 的 timing）
+
    ## 沉淀的知识
    - decisions：…
 

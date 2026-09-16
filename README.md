@@ -46,7 +46,9 @@ Agent 在开始时声明档位，用户可以修改。
 
 review / check 通过 `scripts/viktor-spawn.sh` 用 `claude -p` 或 `codex exec` 起新进程，同步等待，默认 480 秒超时。审查者只审 diff 范围、按档位限制深度（S 只看 diff 并重跑 test；M 对照 AC；L 才允许隔离实验），diff 超过 800 行不自动审。复审只审修复部分。两个 CLI 都没有时打印提示词，人开新窗口粘贴即可。
 
-各端的权限参数（`VIKTOR_CLAUDE_ARGS` / `VIKTOR_CODEX_ARGS`）、一次审查的耗时和 token 用量待 demo 实测后补充到这里。
+独立进程不继承当前会话的授权，所以 `viktor-init` 会把 `viktor-checks` 里的命令写进 `.claude/settings.json` 的 `permissions.allow`（如 `Bash(npm test)`）。给子进程传 `--allowedTools` 或 `bypassPermissions` 会被 Claude Code 的安全策略拒绝，不要走这条路。
+
+demo 实测（Vite + React + Vitest，M 档，7 文件 +468 行）：review 一轮约 1～3 分钟，check 约 3 分钟；`claude -p` 内没有浏览器工具，check 只能用测试作证据，UI 层面标 👀 待人工。
 
 ## 接入
 

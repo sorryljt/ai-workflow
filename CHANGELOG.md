@@ -17,6 +17,14 @@
 - **交付报告**：viktor-ship 生成 report.md，待人工确认项放最前。
 - plan.md frontmatter 新增 `stage` / `stage_result` / `review_round` / `updated`；S 档也自动建 plan.md，续接逻辑统一。
 
+### Fixed（2026-09-16，todolist demo 第一轮后）
+
+- viktor-init 把 `viktor-checks` 命令写入 `.claude/settings.json` permissions.allow，独立进程可直接跑检查；仓库无 commit 时提示先建基线。
+- 审查者 / 验收者遇到命令无法执行时写 `result: error`，spawn 映射为退出码 2，flow 立即停车，不再消耗复审轮次。
+- `VIKTOR_CLAUDE_ARGS` / `VIKTOR_CODEX_ARGS` 按 shell 规则解析，含空格的参数可加引号。
+- check 无浏览器工具时不再启动 dev server、不跑 build，改为按 AC 过滤执行测试。
+- flow 记录各节点耗时到 plan.md `timing`，report 增加耗时一节。
+
 ### Changed
 
 - **节点 9 → 7**：flow / init / plan / code / review / check / ship。think 与 plan 合并为 plan；contract 并入 plan/code（类型定义作为第一个任务直接写进 src）；删除 context、digest。

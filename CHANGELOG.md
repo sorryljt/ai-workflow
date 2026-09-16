@@ -5,7 +5,7 @@
 
 ---
 
-## [Unreleased] — 1.0.0（tag 待 todolist S/M/L 验收后发布）
+## [1.0.0] - 2026-09-16
 
 破坏性重构。按当前 Agent 能力重新设计，不再依赖 superpowers 的调度机制。
 

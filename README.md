@@ -51,7 +51,7 @@ review / check 通过 `scripts/viktor-spawn.sh` 用 `claude -p` 或 `codex exec`
 
 ```bash
 git submodule add https://github.com/sorryljt/fe-ai-workflow.git .workflow/fe-ai-workflow
-cd .workflow/fe-ai-workflow && git checkout <版本 tag> && cd ../..
+cd .workflow/fe-ai-workflow && git checkout v1.0.0 && cd ../..
 .workflow/fe-ai-workflow/scripts/install.sh .workflow/fe-ai-workflow .
 git add -A && git commit -m "chore: add fe-ai-workflow"
 ```
@@ -105,4 +105,4 @@ scripts/                       # install / upgrade / validate / viktor-spawn / k
 
 开发本仓库：`bash scripts/validate.sh`，`bash scripts/install.test.sh`，`bash scripts/spawn.test.sh`，`bash scripts/knowledge.test.sh`。
 
-设计文档：`docs/2026-09-15--v1-redesign.md`、`docs/2026-09-16--flow-and-independent-review.md`；审查记录：`docs/2026-09-15--v1-review.md`。
+设计文档：`docs/2026-09-15--v1-redesign.md`、`docs/2026-09-16--flow-and-independent-review.md`；审查记录：`docs/2026-09-15--v1-review.md`；验收记录：`docs/2026-09-16--demo-results.md`。

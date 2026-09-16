@@ -2,7 +2,7 @@
 
 本项目使用 viktor AI 开发工作流。技能：viktor-flow（自动流水线 / 续接），以及可单独调用的 viktor-init、viktor-plan、viktor-code、viktor-review、viktor-check、viktor-ship。
 
-### 开始任何开发任务前：先判断档位并声明（用户可以修改）
+### 开始任何开发任务前：先判断档位，只输出一行声明（`▶ M 档  plan（等你确认）→ code → …`，不写理由；用户可以改）
 
 | 档位 | 判据 | 流程 |
 |------|------|------|

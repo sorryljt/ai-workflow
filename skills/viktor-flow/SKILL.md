@@ -9,7 +9,13 @@ description: 一个入口跑完整个开发流程（判档 → plan → code →
 
 ### `/viktor-flow <需求描述>`：开新需求
 
-1. 判档并用一句话声明（S / M / L，判据见 AGENTS.md），用户可以改。
+1. 判档并只输出一行声明（不写理由；用户可以直接说"按 L 走"改档）：
+
+   ```
+   ▶ M 档  plan（等你确认）→ code → review → check → ship
+   ▶ S 档  code → review → check → ship（全程自动）
+   ▶ L 档  plan（含任务清单，等你确认）→ code → review → check → ship
+   ```
 2. S 档：viktor-code → viktor-review → viktor-check → viktor-ship，中间不停。
 3. M/L 档：viktor-plan → **等用户确认 plan** → viktor-code → viktor-review → viktor-check → viktor-ship。
 4. 不检查旧需求，不提示旧尾巴。目录名冲突时自动加 `-2`、`-3` 后缀。

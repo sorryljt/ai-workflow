@@ -24,6 +24,7 @@
 - `VIKTOR_CLAUDE_ARGS` / `VIKTOR_CODEX_ARGS` 按 shell 规则解析，含空格的参数可加引号。
 - check 无浏览器工具时不再启动 dev server、不跑 build，改为按 AC 过滤执行测试。
 - flow 记录各节点耗时到 plan.md `timing`，report 增加耗时一节。
+- 卡片改为纯文本（卡内不用 Markdown，终端里不会显示表格源码）；plan 待确认卡合并"关键决策 / 假设 / 需要你定"为"我替你做的决定 + 需要你选"，结尾固定一句"没问题回 OK，有要改的直接告诉我"；报告顶部状态条单行。
 - 对话输出改为统一节点卡（结果 / 关键数字 / 产物 / 下一步），plan 确认卡带关键决策表与 AC 表，report 顶部状态条 + 全表格化，review.md 改为表格；对话里不再复述文件内容。
 
 ### Changed

@@ -44,7 +44,7 @@ description: 以测试驱动的方式实现需求或修复 bug，每一步都提
 结果      AC <n>/<n> 完成
 测试      <k> passed（新增 <j>）· typecheck ✅ · lint ✅
 改动      <f> 文件 +<a> −<d>
-下一步    → review（自动继续）
+下一步    → review
 ```
 
 执行过程中每完成一个 AC 或任务输出一行 `· AC-n ✔ <测试名>`，不输出别的。单独运行时最后一行改为"输入 /viktor-review 继续"。

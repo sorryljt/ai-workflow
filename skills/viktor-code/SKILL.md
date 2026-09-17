@@ -7,8 +7,8 @@ description: 以测试驱动的方式实现需求或修复 bug，每一步都提
 
 ## 输入
 
-- **M/L 档**：`docs/changes/<…>/plan.md`，要求 `status` 为 `confirmed` 或 `in-progress`。选择规则：只有一个 `in-progress` 的计划就用它；否则列出候选让用户选；没有已确认的计划则提示先使用 /viktor-plan。开始时把 `status` 改为 `in-progress`；`base_sha` 为空则写入 `git rev-parse HEAD`（同一分支连续做多个需求时，这保证每个需求只审自己的改动）。
-- **S 档**：直接使用用户描述。开始前用一句话声明档位和要做的改动，并自动创建 `docs/changes/YYYY-MM-DD--<slug>/plan.md`（frontmatter：`status: in-progress`、`tier: S`、`stage: code`、`base_sha: <git rev-parse HEAD>`；正文只有问题描述和一条 AC），不需要用户确认。
+- **M/L 档**：`docs/changes/<…>/plan.md`，要求 `status` 为 `confirmed` 或 `in-progress`。选择规则：只有一个 `in-progress` 的计划就用它；否则列出候选让用户选；没有已确认的计划则提示先使用 /viktor-plan。开始时把 `status` 改为 `in-progress`；`base_tree` 为空则写入 `bash <workflow-dir>/scripts/viktor-spawn.sh snapshot` 的输出（当前工作区快照，含未提交的改动；之后的审查只看此后的变化，前一个需求没提交也不会混进来）。
+- **S 档**：直接使用用户描述。开始前用一句话声明档位和要做的改动，并自动创建 `docs/changes/YYYY-MM-DD--<slug>/plan.md`（frontmatter：`status: in-progress`、`tier: S`、`stage: code`、`base_tree: <viktor-spawn.sh snapshot 的输出>`；正文只有问题描述和一条 AC），不需要用户确认。
 
 开始前用 `bash <workflow-dir>/scripts/knowledge.sh lookup <plan.md 影响范围里的路径>` 取相关知识（S 档用要改的文件路径）。检查命令以 AGENTS.md 的 `viktor-checks` 块为准；缺失时提示用户运行 /viktor-init，本次先从 package.json 推断。
 

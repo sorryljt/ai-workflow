@@ -8,7 +8,7 @@
 
 - 需求目录：{{CHANGES_DIR}}（含 plan.md；若存在 review.md 则本次为复审）
 - 档位：{{TIER}}
-- diff 范围：`git diff {{DIFF_BASE}}` 加上未提交改动
+- diff 范围：`git diff {{DIFF_BASE}} -- . ':!docs/changes' ':!docs/knowledge'`（基线是本需求开始时的工作区快照，未跟踪文件已纳入）
 - 检查命令：项目 AGENTS.md 的 ```viktor-checks 块（typecheck / lint 已由 hook 通过，不必重跑；test 必须由你重跑一次）
 - 主干分支：{{MAIN_BRANCH}}
 - 相关知识：`bash {{WORKFLOW_DIR}}/scripts/knowledge.sh lookup <diff 涉及的文件路径> <需求关键词>`（不要整目录读）
@@ -34,7 +34,7 @@
 
 ## 复审模式（review.md 已存在时）
 
-只审上一轮 BLOCKING 对应的修复部分及其 diff，不重头审。就地更新 review.md：已修复的问题状态改为"已修复"保留；新引入的问题正常列出；更新 `reviewed` 与 `round`；全部 BLOCKING 修复后 `result: pass`。
+上一轮审查时的工作区快照：{{PREV_TREE}}。复审范围 = `git diff {{PREV_TREE}} -- . ':!docs/changes' ':!docs/knowledge'`，即上一轮之后的全部变化——不管是修复 BLOCKING 还是用户手工改动，都在范围内；快照为"无"时审本需求完整 diff。另外逐条核对上一轮的 BLOCKING 是否已修复。就地更新 review.md：已修复的问题状态改为"已修复"保留；新引入的问题正常列出；更新 `reviewed` 与 `round`；全部 BLOCKING 修复后 `result: pass`。
 
 ## 输出
 
@@ -42,7 +42,7 @@
 
 ```markdown
 ---
-run_id: {{RUN_ID}}      # 原样写入，用于确认报告属于本轮
+run_id: {{RUN_ID}}
 result: pass         # pass | blocked | error
 reviewed: YYYY-MM-DD
 round: 1

@@ -2,7 +2,8 @@
 # viktor-spawn.sh — 在独立进程中运行 review / check
 #
 # 用法：viktor-spawn.sh <review|check> <changes-dir> [--agent claude|codex] [--tier S|M|L] [--main <branch>] [--background]
-#       viktor-spawn.sh fingerprint <changes-dir>   输出当前代码相对 base_sha 的指纹（含未跟踪文件），供 plan.md 的 verified 使用
+#       viktor-spawn.sh snapshot                    输出当前工作区快照的 tree（含未提交与未跟踪文件，不动索引），供 plan.md 的 base_tree 使用
+#       viktor-spawn.sh fingerprint                 输出当前代码指纹（工作区快照 tree，排除 docs/changes 与 docs/knowledge），供 plan.md 的 verified 使用
 #   --agent  主会话所在的工具；子进程只用同一个工具，不做跨工具回退
 # 退出码：0 通过（check 含"仅待人工"）；1 有 BLOCKING / 失败项；2 进程失败（超时、非零退出、无产物、产物不属于本轮 run_id、result: error）；3 无可用 CLI（提示词已打印，可手动开新窗口粘贴）
 #
@@ -15,7 +16,17 @@
 #   VIKTOR_WORKFLOW_DIR   工作流仓库目录（默认取本脚本所在仓库），用于定位 prompts/
 set -uo pipefail
 
-ROLE="${1:-}"; DIR="${2:-}"; shift 2 2>/dev/null || true
+ROLE="${1:-}"; DIR="${2:-}"
+# 工作区快照：临时索引 + write-tree，不动真实索引、不产生 commit
+snapshot_tree() {  # snapshot_tree [pathspec...]
+  local idx; idx="$(mktemp)"; rm -f "$idx"
+  ( export GIT_INDEX_FILE="$idx"; git read-tree --empty 2>/dev/null; git add -A -- "$@" 2>/dev/null; git write-tree ); rm -f "$idx"
+}
+case "$ROLE" in
+  snapshot)    snapshot_tree . ; exit 0;;
+  fingerprint) snapshot_tree . ':!docs/changes' ':!docs/knowledge' | cut -c1-12; exit 0;;
+esac
+shift 2 2>/dev/null || true
 TIER=""; MAIN=""; BG=0; AGENT_ARG=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -26,13 +37,6 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数：$1" >&2; exit 2;;
   esac
 done
-if [[ "$ROLE" == fingerprint ]]; then
-  [[ -d "$DIR" ]] || { echo "需求目录不存在：${DIR}" >&2; exit 2; }
-  B=""; [[ -f "$DIR/plan.md" ]] && B="$(sed -n '1,/^---$/{s/^base_sha:[[:space:]]*//p;}' "$DIR/plan.md" | head -1 | tr -d '\r')"
-  [[ -n "$B" ]] && git cat-file -e "$B^{commit}" 2>/dev/null || B="$(git rev-parse HEAD 2>/dev/null || echo HEAD)"
-  { git diff "$B" 2>/dev/null; git ls-files --others --exclude-standard -z 2>/dev/null | while IFS= read -r -d '' f; do printf '%s\0' "$f"; git hash-object -- "$f" 2>/dev/null; done; } | shasum | cut -c1-12
-  exit 0
-fi
 [[ "$ROLE" == "review" || "$ROLE" == "check" ]] || { echo "Usage: $0 <review|check> <changes-dir> [--tier S|M|L] [--main branch] [--background]" >&2; exit 2; }
 [[ -d "$DIR" ]] || { echo "需求目录不存在：$DIR" >&2; exit 2; }
 
@@ -47,14 +51,20 @@ OUT="$DIR/$ROLE.md"
 TIER="${TIER:-S}"
 [[ -z "$MAIN" && -f AGENTS.md ]] && MAIN="$(sed -n 's/^- 主干分支：[[:space:]]*//p' AGENTS.md | head -1 | tr -d '\r')"
 MAIN="${MAIN:-main}"
-# 审查基线：优先 plan.md 的 base_sha（code 开始时记录），否则与主干的 merge-base
-BASE=""; [[ -f "$DIR/plan.md" ]] && BASE="$(sed -n '1,/^---$/{s/^base_sha:[[:space:]]*//p;}' "$DIR/plan.md" | head -1 | tr -d '\r')"
-[[ -n "$BASE" ]] && git cat-file -e "$BASE^{commit}" 2>/dev/null || BASE="$(git merge-base HEAD "$MAIN" 2>/dev/null || git rev-parse HEAD 2>/dev/null || echo HEAD)"
-# 未跟踪文件用 intent-to-add 纳入 diff（不改变提交内容，审查后可 git reset 还原）
+# 审查基线：优先 plan.md 的 base_tree（需求开始时的工作区快照），其次 base_sha，最后与主干的 merge-base
+BASE=""
+if [[ -f "$DIR/plan.md" ]]; then
+  BASE="$(sed -n '1,/^---$/{s/^base_tree:[[:space:]]*//p;}' "$DIR/plan.md" | head -1 | sed 's/[[:space:]]*#.*//' | tr -d '\r')"
+  [[ -z "$BASE" ]] && BASE="$(sed -n '1,/^---$/{s/^base_sha:[[:space:]]*//p;}' "$DIR/plan.md" | head -1 | sed 's/[[:space:]]*#.*//' | tr -d '\r')"
+fi
+[[ -n "$BASE" ]] && git cat-file -e "$BASE" 2>/dev/null || BASE="$(git merge-base HEAD "$MAIN" 2>/dev/null || git rev-parse HEAD 2>/dev/null || echo HEAD)"
+# 上一轮审查时的快照（复审只审此后的变化）
+PREV_TREE="无"; [[ "$ROLE" == review && -f "$DIR/.review.tree" ]] && PREV_TREE="$(cat "$DIR/.review.tree")"
+# 未跟踪文件用 intent-to-add 纳入 diff（不改变提交内容）
 git ls-files --others --exclude-standard -z 2>/dev/null | xargs -0 -r git add -N -- 2>/dev/null || true
 
 RUN_ID="$(date +%Y%m%d%H%M%S)-$$"
-PROMPT="$(sed -e "s#{{RUN_ID}}#$RUN_ID#g" -e "s#{{CHANGES_DIR}}#$DIR#g" -e "s#{{TIER}}#$TIER#g" -e "s#{{DIFF_BASE}}#$BASE#g" -e "s#{{MAIN_BRANCH}}#$MAIN#g" -e "s#{{WORKFLOW_DIR}}#$WF#g" "$PROMPT_TPL")"
+PROMPT="$(sed -e "s#{{RUN_ID}}#$RUN_ID#g" -e "s#{{PREV_TREE}}#$PREV_TREE#g" -e "s#{{CHANGES_DIR}}#$DIR#g" -e "s#{{TIER}}#$TIER#g" -e "s#{{DIFF_BASE}}#$BASE#g" -e "s#{{MAIN_BRANCH}}#$MAIN#g" -e "s#{{WORKFLOW_DIR}}#$WF#g" "$PROMPT_TPL")"
 printf '%s\n' "$PROMPT" > "$DIR/.$ROLE.prompt.md"
 
 # 选择 CLI：主会话是谁就派谁，不做跨工具回退
@@ -95,7 +105,7 @@ run_with_timeout() {  # 可移植的超时（macOS 无 timeout 命令）
 verify() {  # verify <进程退出码>
   local rc="$1"
   [[ -f "$OUT" ]] || { echo "${ROLE} 进程结束但未产出 ${OUT}（日志：${LOG}）" >&2; return 2; }
-  local rid; rid="$(sed -n '1,/^---$/{s/^run_id:[[:space:]]*//p;}' "$OUT" | head -1 | tr -d '\r')"
+  local rid; rid="$(sed -n '1,/^---$/{s/^run_id:[[:space:]]*//p;}' "$OUT" | head -1 | sed 's/[[:space:]]*#.*//; s/[[:space:]]*$//' | tr -d '\r"')"
   [[ "$rid" == "$RUN_ID" ]] || { echo "${OUT} 不属于本轮（run_id=${rid:-无}，期望 ${RUN_ID}），日志：${LOG}" >&2; return 2; }
   local res; res="$(sed -n '1,/^---$/{s/^result:[[:space:]]*\([a-z]*\).*/\1/p;}' "$OUT" | head -1)"
   if [[ "$rc" -ne 0 && "$res" != error ]]; then echo "${ROLE} 进程异常退出（rc=${rc}），报告不采信，日志：${LOG}" >&2; return 2; fi
@@ -115,4 +125,6 @@ fi
 
 run_with_timeout; rc=$?
 if [[ $rc -eq 124 ]]; then echo "${ROLE} 超时（${TIMEOUT}s），日志：${LOG}" >&2; exit 2; fi
-verify "$rc"
+verify "$rc"; vrc=$?
+[[ "$ROLE" == review && $vrc -le 1 ]] && snapshot_tree . > "$DIR/.review.tree"
+exit $vrc

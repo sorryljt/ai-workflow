@@ -65,8 +65,8 @@ tier: M              # S | M | L
 stage: plan          # plan | code | review | check | ship | done（最近完成或停住的节点）
 stage_result: ok     # ok | blocked | error
 review_round: 0
-base_sha:             # code 开始时写入 git rev-parse HEAD，作为本需求的审查基线
-verified: {}          # review / check 通过时写入被验证代码的指纹，例如 {review: a1b2c3, check: a1b2c3}
+base_tree:            # code 开始时写入 viktor-spawn.sh snapshot 的输出：本需求开始时的工作区快照，审查只看此后的变化
+verified: {}          # review / check 通过时写入 viktor-spawn.sh fingerprint 的输出，例如 {review: a1b2c3d4e5f6, check: a1b2c3d4e5f6}
 timing: {}            # 各节点耗时，由 flow 追加
 created: YYYY-MM-DD
 updated: YYYY-MM-DD

@@ -84,14 +84,34 @@ CODEX_SANDBOX=1 run review "$D" >/dev/null && [[ -f "$T/args.codex" && ! -f "$T/
 rm -f "$T/args.claude" "$T/args.codex"
 CLAUDECODE=1 run review "$D" >/dev/null && [[ -f "$T/args.claude" && ! -f "$T/args.codex" ]] || fail "CLAUDECODE 环境变量应选 claude"
 
-# 6d. fingerprint：内容变化则指纹变化；base_sha 生效（只算本需求的改动）
-f_a="$("$SPAWN" fingerprint "$D")"; printf 'more\n' >> "$T/proj/new.ts"; f_b="$("$SPAWN" fingerprint "$D")"
-[[ "$f_a" != "$f_b" ]] || fail "未跟踪文件变化后指纹应变化"
-git -C "$T/proj" add -A >/dev/null; git -C "$T/proj" -c user.email=a@b -c user.name=t commit -qm prev
-sha=$(git -C "$T/proj" rev-parse HEAD); printf -- '---\nstatus: in-progress\ntier: M\nbase_sha: %s\n---\n# x\n' "$sha" > "$D/plan.md"
-printf 'z\n' > "$T/proj/z.ts"
-run review "$D" >/dev/null 2>&1 || true
-grep -q "git diff $sha" "$D/.review.prompt.md" || fail "提示词应使用 plan.md 的 base_sha"
+# 6d. 指纹：写 plan.md / check.md / 日志不改变指纹；改业务代码才变；未跟踪文件也算
+f_a="$("$SPAWN" fingerprint)"
+printf 'verified: {review: %s}\n' "$f_a" >> "$D/plan.md"; printf 'x\n' > "$D/check.md"; printf 'log\n' > "$D/.review.log"
+[[ "$("$SPAWN" fingerprint)" == "$f_a" ]] || fail "写运行产物后指纹不应变化"
+printf 'more\n' > "$T/proj/new.ts"
+[[ "$("$SPAWN" fingerprint)" != "$f_a" ]] || fail "新增未跟踪源码后指纹应变化"
+
+# 6e. base_tree 隔离未提交的前一个需求；复审只看上一轮快照之后的变化；run_id 带注释也能识别
+: > "$T/proj/prev-req.ts"                      # 前一个需求的未提交改动
+tree="$(cd "$T/proj" && "$SPAWN" snapshot)"    # 本需求开始时的快照
+printf -- '---\nstatus: in-progress\ntier: M\nbase_tree: %s   # 注释\n---\n# x\n' "$tree" > "$D/plan.md"
+printf 'z\n' > "$T/proj/z.ts"                  # 本需求的改动
+git -C "$T/proj" add -N z.ts prev-req.ts        # 与 spawn 一致：未跟踪文件 intent-to-add
+git -C "$T/proj" diff "$tree" --stat -- . | grep -q "z.ts" || fail "base_tree diff 应含本需求文件"
+git -C "$T/proj" diff "$tree" --stat -- . | grep -q "prev-req.ts" && fail "base_tree diff 不应含前一个需求的未提交文件" || true
+mkfake claude "writeres review pass"
+run review "$D" >/dev/null || fail "第一轮 review 应通过"
+grep -q "git diff $tree" "$D/.review.prompt.md" || fail "提示词应使用 plan.md 的 base_tree"
+[[ -s "$D/.review.tree" ]] || fail "review 后应记录本轮快照"
+prev="$(cat "$D/.review.tree")"; printf 'w\n' > "$T/proj/w.ts"
+run review "$D" >/dev/null || fail "复审应通过"
+git -C "$T/proj" add -N w.ts
+grep -q "git diff $prev" "$D/.review.prompt.md" || fail "复审提示词应使用上一轮快照"
+git -C "$T/proj" diff "$prev" --stat | grep -q "w.ts" || fail "复审范围应含新改动"
+git -C "$T/proj" diff "$prev" --stat | grep -q "z.ts" && fail "复审范围不应含上一轮已审内容" || true
+# run_id 行尾带注释
+mkfake claude "rid=\$(sed -n 's/^run_id:[[:space:]]*\([^ ]*\).*/\1/p' $D/.review.prompt.md | head -1); printf -- '---\nrun_id: %s   # 原样写入\nresult: pass\n---\n' \"\$rid\" > $D/review.md"
+run review "$D" >/dev/null || fail "run_id 带行尾注释应能识别"
 git -C "$T/proj" reset -q 2>/dev/null || true
 
 # 7. VIKTOR_AGENT 强制选择；后台模式写 .done

@@ -9,8 +9,9 @@
 
 ### Fixed（独立 review 后）
 
-- 续接看代码指纹：review / check 通过时把被验证代码的指纹写进 plan.md `verified`，续接时指纹变了就回 review；draft 状态的 plan 也可续接。
-- 审查范围统一：code 开始时记录 `base_sha`，spawn 与提示词都以它为基线；未跟踪文件用 `git add -N` 纳入 diff；同一分支连续多个需求互不污染。
+- 续接看代码指纹：指纹是工作区快照的 tree（排除 docs/changes、docs/knowledge，写报告不会让自己失效）；review / check 通过时写进 plan.md `verified`，续接时指纹变了就回 review；draft 状态的 plan 也可续接。
+- 审查范围统一：code 开始时用临时索引给工作区拍快照记为 `base_tree`（含未提交的前一个需求，天然隔离）；每轮 review 结束记录 `.review.tree`，复审范围 = 上一轮快照之后的全部变化（修复与手改都在内）；未跟踪文件用 `git add -N` 纳入 diff。
+- 报告 `run_id` 解析忽略行尾注释与引号；模板不再带注释。
 - 门禁缓存键加入执行目录与 viktor-checks 内容，子包之间、改命令后不再误复用通过结果。
 - spawn 成功条件收紧：进程退出码为 0、报告 `run_id` 属于本轮、结构有效三者同时满足；后台模式同样使用退出码。
 - knowledge.sh 首次 `rebuild` 在目录不存在时的静默失败；重建失败返回非零。

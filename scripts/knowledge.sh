@@ -32,7 +32,8 @@ rebuild() {
   done
 } 
 case "$cmd" in
-  rebuild) rebuild > "$IDX.tmp" && mv "$IDX.tmp" "$IDX"; echo "已重建 $IDX（$(grep -c ' | ' "$IDX") 条，含表头）";;
+  rebuild) mkdir -p "$K" || { echo "无法创建 $K" >&2; exit 1; }
+    if rebuild > "$IDX.tmp"; then mv "$IDX.tmp" "$IDX" && echo "已重建 ${IDX}（$(grep -c ' | ' "$IDX") 条，含表头）"; else rm -f "$IDX.tmp"; echo "重建失败" >&2; exit 1; fi;;
   lookup)
     [[ -f "$IDX" ]] || { echo "无 $IDX" >&2; exit 0; }
     [[ $# -gt 0 ]] || { echo "Usage: knowledge.sh lookup <路径或关键词>..." >&2; exit 2; }

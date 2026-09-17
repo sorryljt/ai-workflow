@@ -25,6 +25,7 @@
 
 ```markdown
 ---
+run_id: {{RUN_ID}}      # 原样写入，用于确认报告属于本轮
 result: pass         # pass | failed | manual（全部通过但有待人工项）| error（命令无法执行）
 checked: YYYY-MM-DD
 ---

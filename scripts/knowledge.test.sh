@@ -4,7 +4,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; KS="$ROOT/scripts/knowl
 fail(){ echo "FAIL: $1" >&2; exit 1; }
 lk(){ "$KS" lookup "$@" > "$T/lk.out" || true; cat "$T/lk.out"; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-cd "$T"; mkdir -p src docs/knowledge; touch src/App.tsx src/useTodos.ts
+cd "$T"; mkdir -p src; touch src/App.tsx src/useTodos.ts
+
+# 0. 首次安装：docs/knowledge 不存在时 rebuild 必须能建目录并生成索引
+"$KS" rebuild >/dev/null || fail "首次 rebuild 应成功"
+[[ -f docs/knowledge/index.md ]] || fail "首次 rebuild 未生成 index.md"
 
 # 1. add + rebuild + index 格式
 f1=$(printf '不加 maxLength，否则提示永远不出现\n' | "$KS" add --type pitfall --title "输入框不能加 maxLength" --scope "src/App.tsx, 编辑框" --source "docs/changes/x/")

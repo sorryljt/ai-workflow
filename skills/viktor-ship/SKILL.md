@@ -26,10 +26,9 @@ description: 收尾一个需求：生成交付报告 report.md（本轮做了什
 ## 步骤
 
 1. **提炼**：阅读本需求的 plan.md、review.md、diff 和对话中的关键讨论，列出候选条目。
-2. **确认**：展示给用户，用户可以删改。
-3. **写入**：每条一次 `knowledge.sh add`；有推翻的用 `supersede`。
-4. **CHANGELOG**：项目有 CHANGELOG.md 时，在 `[Unreleased]` 下添加面向用户的变更描述。
-5. **交付报告**：写入 `docs/changes/<…>/report.md`，并在对话中展示：顶部状态条放代码块，其余表格**不放代码块**（让终端渲染）。只统计本需求目录的内容；review.md / check.md 缺失时对应格子写"未执行"，不阻塞。"审查者核实过但未构成问题的点"不进报告。"待人工确认"只放需要人去验证的项，不放"要不要修某条 SUGGESTED"这类决策，决策写在审查记录的剩余 SUGGESTED 里。
+2. **写入**（不停下来确认：条目列在交付报告"沉淀的知识"里，用户看报告时可以要求删改）：每条一次 `knowledge.sh add`；有推翻的用 `supersede`。
+3. **CHANGELOG**：项目有 CHANGELOG.md 时，在 `[Unreleased]` 下添加面向用户的变更描述。
+4. **交付报告**：写入 `docs/changes/<…>/report.md`，并在对话中展示：顶部状态条放代码块，其余表格**不放代码块**（让终端渲染）。只统计本需求目录的内容；review.md / check.md 缺失时对应格子写"未执行"，不阻塞。"审查者核实过但未构成问题的点"不进报告。"待人工确认"只放需要人去验证的项，不放"要不要修某条 SUGGESTED"这类决策，决策写在审查记录的剩余 SUGGESTED 里。
 
    ```markdown
    ━━ ✅ 交付 · <需求名> · <档位> · 合计 <耗时> ━━━━━━━━━━━━━━
@@ -64,4 +63,4 @@ description: 收尾一个需求：生成交付报告 report.md（本轮做了什
 
    ## 建议的 commit message
    ```
-6. **收尾**：把 plan.md 的 `status` 改为 `done`、`stage: done`、更新 `updated`。
+5. **收尾**：把 plan.md 的 `status` 改为 `done`、`stage: done`、更新 `updated`。

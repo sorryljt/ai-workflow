@@ -65,6 +65,8 @@ tier: M              # S | M | L
 stage: plan          # plan | code | review | check | ship | done（最近完成或停住的节点）
 stage_result: ok     # ok | blocked | error
 review_round: 0
+base_sha:             # code 开始时写入 git rev-parse HEAD，作为本需求的审查基线
+verified: {}          # review / check 通过时写入被验证代码的指纹，例如 {review: a1b2c3, check: a1b2c3}
 timing: {}            # 各节点耗时，由 flow 追加
 created: YYYY-MM-DD
 updated: YYYY-MM-DD

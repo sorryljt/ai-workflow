@@ -7,8 +7,8 @@ description: 以测试驱动的方式实现需求或修复 bug，每一步都提
 
 ## 输入
 
-- **M/L 档**：`docs/changes/<…>/plan.md`，要求 `status` 为 `confirmed` 或 `in-progress`。选择规则：只有一个 `in-progress` 的计划就用它；否则列出候选让用户选；没有已确认的计划则提示先使用 /viktor-plan。开始时把 `status` 改为 `in-progress`。
-- **S 档**：直接使用用户描述。开始前用一句话声明档位和要做的改动，并自动创建 `docs/changes/YYYY-MM-DD--<slug>/plan.md`（frontmatter：`status: in-progress`、`tier: S`、`stage: code`；正文只有问题描述和一条 AC），不需要用户确认。
+- **M/L 档**：`docs/changes/<…>/plan.md`，要求 `status` 为 `confirmed` 或 `in-progress`。选择规则：只有一个 `in-progress` 的计划就用它；否则列出候选让用户选；没有已确认的计划则提示先使用 /viktor-plan。开始时把 `status` 改为 `in-progress`；`base_sha` 为空则写入 `git rev-parse HEAD`（同一分支连续做多个需求时，这保证每个需求只审自己的改动）。
+- **S 档**：直接使用用户描述。开始前用一句话声明档位和要做的改动，并自动创建 `docs/changes/YYYY-MM-DD--<slug>/plan.md`（frontmatter：`status: in-progress`、`tier: S`、`stage: code`、`base_sha: <git rev-parse HEAD>`；正文只有问题描述和一条 AC），不需要用户确认。
 
 开始前用 `bash <workflow-dir>/scripts/knowledge.sh lookup <plan.md 影响范围里的路径>` 取相关知识（S 档用要改的文件路径）。检查命令以 AGENTS.md 的 `viktor-checks` 块为准；缺失时提示用户运行 /viktor-init，本次先从 package.json 推断。
 
@@ -37,7 +37,7 @@ description: 以测试驱动的方式实现需求或修复 bug，每一步都提
 
 所有任务或验收标准都有对应测试或验证证据，并且完整运行一遍 `viktor-checks` 中的命令后全部通过。
 
-完成后：把 plan.md 的 `stage` 改为 `code`、`stage_result: ok`、更新 `updated`；S 档若排查中有符合 pitfalls 标准的踩坑（花了明显排查时间，或下一个 Agent 很可能再犯），追加一条到 `docs/knowledge/pitfalls.md`。然后只输出节点卡：
+完成后：把 plan.md 的 `stage` 改为 `code`、`stage_result: ok`、更新 `updated`；S 档若排查中有符合 pitfalls 标准的踩坑（花了明显排查时间，或下一个 Agent 很可能再犯），用 `bash <workflow-dir>/scripts/knowledge.sh add --type pitfall …` 写入。然后只输出节点卡：
 
 ```
 ━━ ✔ CODE · <档位> · <耗时> ━━━━━━━━━━━━━━━━━━━━━━━━━

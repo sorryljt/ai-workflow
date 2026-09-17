@@ -14,10 +14,10 @@ description: 派发独立审查：在新进程中审查本次改动的 diff，�
 
 ## 步骤
 
-1. 确认有 diff（`git status`）；没有改动则说明并结束。
+1. 确认审查范围非空：`git diff --stat <base_sha>` 加未跟踪文件（base_sha 来自 plan.md；为空则先按 viktor-code 的规则写入）。工作区干净但分支上已有本需求的提交，同样要审；范围为空才说明并结束。
 2. diff 超过 800 行：不派单，输出需要处理卡建议分批（按任务提交一部分再审）。
 3. 派单：`bash <workflow-dir>/scripts/viktor-spawn.sh review <需求目录> --agent <claude|codex，你当前运行所在的工具>`（workflow-dir 通常为 `.workflow/fe-ai-workflow`）。子进程只用同一个工具，不跨工具。同步等待，退出码含义：
-   - 0：通过。`stage: review`、`stage_result: ok`。
+   - 0：通过。`stage: review`、`stage_result: ok`，并把被审查代码的指纹写入 `verified.review`（指纹 = `git diff <base_sha> | shasum` 加未跟踪文件内容的哈希，可用 `bash <workflow-dir>/scripts/viktor-spawn.sh fingerprint <需求目录>` 取得）。
    - 1：有 BLOCKING。进入修复循环（下一节）。
    - 2：审查进程失败（超时、崩溃、无产物，或审查者报告检查命令无法执行）。不计入复审轮次。输出需要处理卡，附 `.review.log` 路径；若是权限问题，回复行给出「运行 /viktor-init 补齐权限」的选项。
    - 3：没有可用的 CLI。输出需要处理卡：让用户开一个新窗口，把 `.review.prompt.md` 的内容作为第一条消息发送，完成后回来说「继续」。

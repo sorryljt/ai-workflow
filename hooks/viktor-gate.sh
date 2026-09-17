@@ -33,7 +33,9 @@ while IFS= read -r -d '' f; do
   FILES+=("$f")
 done < <( { "${G[@]}" diff -z --name-only HEAD; "${G[@]}" diff -z --name-only --cached; "${G[@]}" ls-files -z --others --exclude-standard; } 2>/dev/null | tr '\0' '\n' | sort -u | tr '\n' '\0')
 [[ ${#FILES[@]} -eq 0 ]] && exit 0
-fp="$( { "${G[@]}" diff HEAD -- "${FILES[@]}"; for f in "${FILES[@]}"; do "${G[@]}" ls-files --error-unmatch -- "$f" >/dev/null 2>&1 || { printf '%s\0' "$f"; "${G[@]}" hash-object -- "$TOP/$f" 2>/dev/null; }; done; } | shasum | cut -d' ' -f1 )"
+# 缓存键 = 代码指纹 + 执行目录 + viktor-checks 块内容（换子包或改命令都会失效）
+checks_blob="$(sed -n '/^[[:space:]]*```viktor-checks[[:space:]]*$/,/^[[:space:]]*```[[:space:]]*$/p' AGENTS.md | tr -d '\r')"
+fp="$( { printf '%s\0%s\0' "$WORK" "$checks_blob"; "${G[@]}" diff HEAD -- "${FILES[@]}"; for f in "${FILES[@]}"; do "${G[@]}" ls-files --error-unmatch -- "$f" >/dev/null 2>&1 || { printf '%s\0' "$f"; "${G[@]}" hash-object -- "$TOP/$f" 2>/dev/null; }; done; } | shasum | cut -d' ' -f1 )"
 [[ -f "$STATE/passed" && "$(cat "$STATE/passed")" == "$fp" ]] && exit 0
 
 # 读取检查命令：```viktor-checks 块内每行 key: command（允许行首空白）

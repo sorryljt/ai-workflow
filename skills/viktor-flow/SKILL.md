@@ -22,23 +22,26 @@ description: 一个入口跑完整个开发流程（判档 → plan → code →
 
 ### `/viktor-flow`（无参数）或“继续”：续接
 
-1. 扫描 `docs/changes/*/plan.md`，筛选**我的** in-progress 需求：`status` 为 `confirmed` 或 `in-progress`，并且（文件未提交或有本地修改，或最后一次提交作者是当前 git 用户），并且 `updated` 在 14 天内。别人的需求完全静默，不列出、不碰。
+1. 扫描 `docs/changes/*/plan.md`，筛选**我的**未完成需求：`status` 为 `draft`、`confirmed` 或 `in-progress`，并且（文件未提交或有本地修改，或最后一次提交作者是当前 git 用户），并且 `updated` 在 14 天内。别人的需求完全静默，不列出、不碰。
 2. 没有候选：说明没有可续接的需求，结束。
 3. 一个候选：直接续接。多个：列出（需求名 / 停在哪个节点 / 更新时间）让用户选。
 4. 每个候选可选：**继续**（从 `stage` 的下一个节点开始）/ **归档**（`status: archived`，之后不再列出）/ **忽略**（这次不管）。
-5. 续接时不重跑已完成的节点；后续节点都从磁盘重新取输入，用户手工的改动自然纳入。
+5. 续接时先算当前代码指纹（`viktor-spawn.sh fingerprint <需求目录>`），与 plan.md 的 `verified` 比较：
+   - 指纹与 `verified.review` / `verified.check` 一致：不重跑，从 `stage` 的下一步继续。
+   - 指纹变了（用户手工改过代码）：已通过的 review / check 作废，从 review 重新开始（复审模式，只审变化部分）。
+   后续节点都从磁盘重新取输入。
 
 ## 节点顺序与续接位置
 
 | stage（最近完成的节点） | stage_result | 下一步 |
 |---|---|---|
 | plan | ok（且 status: confirmed） | code |
-| plan | 其他 | 等待确认 plan |
+| plan | 其他（含 status: draft） | 输出待确认卡，等待确认 |
 | code | ok | review |
 | code | blocked | 需要处理（计划偏离/升档），处理后从 code 继续 |
-| review | ok | check |
+| review | ok | check（指纹变了则回 review） |
 | review | blocked | 需要处理（复审超阈值），用户修完后从 review（复审）继续 |
-| check | ok | ship |
+| check | ok | ship（指纹变了则回 review） |
 | check | blocked | 需要处理（验收失败），用户修完后从 check 继续 |
 | ship | ok | done |
 

@@ -80,12 +80,12 @@ grep -q "error TS1" "$T/out" || fail "systemMessage 未包含错误摘要"
 # 新回合（stop_hook_active=false）计数重置：应再次拦截且显示 1/3
 set +e; echo '{"stop_hook_active":false}' | gate "$T/g" >/dev/null 2>"$T/err"; rc=$?; set -e
 [[ $rc -eq 2 ]] && grep -q "1/3" "$T/err" || fail "新回合计数未重置"
-# 缺失项跳过；通过后记录指纹，再次调用直接放行；改动后重新检查
-printf '```viktor-checks\ntest: true\n```\n' > AGENTS.md
+# 缺失项跳过；通过后记录指纹，再次调用直接放行（命令第二次执行会失败，能通过说明被跳过）；改动后重新检查
+printf '```viktor-checks\ntest: test ! -f %s/ran && touch %s/ran\n```\n' "$T" "$T" > AGENTS.md
 echo '{}' | gate "$T/g" || fail "只有 test 且通过时应返回 0"
 [[ -f .git/viktor-gate/passed ]] || fail "未记录通过指纹"
-printf '```viktor-checks\ntest: false\n```\n' > AGENTS.md
 echo '{}' | gate "$T/g" || fail "指纹未变化时应跳过检查"
+printf '```viktor-checks\ntest: false\n```\n' > AGENTS.md
 printf 'y\n' >> a.ts
 set +e; echo '{}' | gate "$T/g" 2>/dev/null; rc=$?; set -e
 [[ $rc -eq 2 ]] || fail "改动后应重新检查"
@@ -125,6 +125,15 @@ printf 'bad\n' > "$T/g2/pkg2/x.ts"
 set +e; echo '{}' | gate "$T/g2/pkg2" 2>/dev/null; rc=$?; set -e
 [[ $rc -eq 2 ]] || fail "子包已跟踪文件：内容变化后应重新检查，实际 $rc"
 mkdir -p "$T/nogit"; (cd "$T/nogit" && unset CLAUDE_PROJECT_DIR && echo '{}' | bash "$GATE") || fail "非 git 目录应放行"
+
+# 7b. 缓存不能跨子包 / 跨命令复用：A 子包通过后，B 子包失败仍须拦截；改命令后须重跑
+mk_repo "$T/gc"; mkdir -p "$T/gc/a" "$T/gc/b"
+printf '```viktor-checks\ntest: true\n```\n' > "$T/gc/a/AGENTS.md"; printf '```viktor-checks\ntest: false\n```\n' > "$T/gc/b/AGENTS.md"
+printf 'x\n' > "$T/gc/a/x.ts"; printf 'y\n' > "$T/gc/b/y.ts"
+echo '{}' | gate "$T/gc/a" || fail "子包 A 应通过"
+set +e; echo '{}' | gate "$T/gc/b" 2>/dev/null; rc=$?; set -e; [[ $rc -eq 2 ]] || fail "子包 B 不应复用 A 的通过缓存，实际 $rc"
+printf '```viktor-checks\ntest: false\n```\n' > "$T/gc/a/AGENTS.md"
+set +e; echo '{}' | gate "$T/gc/a" 2>/dev/null; rc=$?; set -e; [[ $rc -eq 2 ]] || fail "改了检查命令后应重跑，实际 $rc"
 
 # ── 8. 升级时替换旧的 hook 条目 ──
 mkdir -p "$T/p8/.claude"; echo '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"bash .claude/hooks/viktor-gate.sh"}]},{"hooks":[{"type":"command","command":"echo keep"}]}]}}' > "$T/p8/.claude/settings.json"

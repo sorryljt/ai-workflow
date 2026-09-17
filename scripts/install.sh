@@ -20,7 +20,7 @@ fi
 SRC="$(cd "$SRC" && pwd)"; mkdir -p "$DST"; DST="$(cd "$DST" && pwd)"
 SETTINGS="$DST/.claude/settings.json"; SNIP="$SRC/hooks/settings.snippet.json"
 if [[ -f "$SETTINGS" ]] && ! command -v node >/dev/null 2>&1 && ! command -v jq >/dev/null 2>&1; then
-  echo "错误：需要 node 或 jq 才能把 hook 合并进已有的 $SETTINGS。请先安装其中一个，或手动合并 $SNIP 的内容" >&2; exit 1
+  echo "错误：需要 node 或 jq 才能把 hook 合并进已有的 ${SETTINGS}。请先安装其中一个，或手动合并 $SNIP 的内容" >&2; exit 1
 fi
 
 START="<!-- fe-ai-workflow-start -->"

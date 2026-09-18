@@ -51,7 +51,7 @@ review / check 通过 `scripts/viktor-spawn.sh` 用 `claude -p` 或 `codex exec`
 
 ```bash
 git submodule add https://github.com/sorryljt/fe-ai-workflow.git .workflow/fe-ai-workflow
-cd .workflow/fe-ai-workflow && git checkout v1.0.0 && cd ../..
+cd .workflow/fe-ai-workflow && git checkout v1.0.1 && cd ../..
 .workflow/fe-ai-workflow/scripts/install.sh .workflow/fe-ai-workflow .
 git add -A && git commit -m "chore: add fe-ai-workflow"
 ```

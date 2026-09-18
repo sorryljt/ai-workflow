@@ -162,22 +162,40 @@ if ! command -v "$AGENT" >/dev/null 2>&1; then
 fi
 # Claude 信任配置不存在或没有 JSON 解析器时跳过；保留日志检测兜底。
 if [[ "$AGENT" == claude && -f "$HOME/.claude.json" ]]; then
+  # pwd -P 与 realpath 一样解析当前目录的符号链接；保留逻辑路径以兼容已有 key。
+  TRUST_PATHS=("$PWD" "$(pwd -P)")
+  trust_top="$(git rev-parse --show-toplevel 2>/dev/null)"
+  [[ -n "$trust_top" ]] && TRUST_PATHS+=("$trust_top")
+  # linked worktree 的 .git 文件指向主仓库 .git/worktrees/<name>；commondir 支持相对路径。
+  if [[ -n "$trust_top" && -f "$trust_top/.git" ]]; then
+    trust_gitdir="$(sed -n 's/^gitdir: //p' "$trust_top/.git")"
+    case "$trust_gitdir" in /*) ;; *) trust_gitdir="$trust_top/$trust_gitdir";; esac
+    if [[ -f "$trust_gitdir/commondir" ]]; then
+      trust_common="$(cat "$trust_gitdir/commondir")"
+      case "$trust_common" in /*) ;; *) trust_common="$trust_gitdir/$trust_common";; esac
+      trust_main="$(cd "$trust_common/.." 2>/dev/null && pwd -P)"
+      [[ -n "$trust_main" ]] && TRUST_PATHS+=("$trust_main")
+    fi
+  fi
   trust_rc=0
   if command -v node >/dev/null 2>&1; then
-    node -e 'try { const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); process.exit(c.projects?.[process.argv[2]]?.hasTrustDialogAccepted === true ? 0 : 2); } catch (_) { process.exit(2); }' "$HOME/.claude.json" "$(pwd -P)" || trust_rc=$?
+    node -e 'try { const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); const values = process.argv.slice(2).map(p => c.projects?.[p]?.hasTrustDialogAccepted); process.exit(values.includes(true) ? 0 : values.includes(false) ? 2 : 3); } catch (_) { process.exit(2); }' "$HOME/.claude.json" "${TRUST_PATHS[@]}" || trust_rc=$?
   elif command -v python3 >/dev/null 2>&1; then
-    python3 - "$HOME/.claude.json" "$(pwd -P)" <<'PYTRUST' || trust_rc=$?
+    python3 - "$HOME/.claude.json" "${TRUST_PATHS[@]}" <<'PYTRUST' || trust_rc=$?
 import json, sys
 try:
     with open(sys.argv[1]) as f:
         config = json.load(f)
-    trusted = config.get("projects", {}).get(sys.argv[2], {}).get("hasTrustDialogAccepted") is True
+    values = [config.get("projects", {}).get(p, {}).get("hasTrustDialogAccepted") for p in sys.argv[2:]]
+    result = 0 if any(v is True for v in values) else 2 if any(v is False for v in values) else 3
 except (OSError, ValueError, AttributeError):
-    trusted = False
-sys.exit(0 if trusted else 2)
+    result = 2
+sys.exit(result)
 PYTRUST
   fi
-  if [[ $trust_rc -ne 0 ]]; then
+  if [[ $trust_rc -eq 3 ]]; then
+    echo '未在 ~/.claude.json 找到本项目的信任记录，若子进程报权限错误请先交互式信任' >&2
+  elif [[ $trust_rc -ne 0 ]]; then
     echo '工作区未被 Claude Code 信任：请在项目目录交互式启动一次 claude 并选择信任，然后说「继续」' >&2
     exit 2
   fi

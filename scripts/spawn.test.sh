@@ -32,16 +32,34 @@ grep -q "档位：M" "$D/.review.prompt.md" || fail "档位未从 plan.md 读取
 grep -q -- "--permission-mode" "$T/args.claude" || fail "claude 默认参数未传入"
 grep -qx "stream-json" "$T/args.claude" && grep -qx -- "--verbose" "$T/args.claude" || fail "claude 子进程默认应输出 stream-json"
 
-# 1b. 主动信任检测：临时 HOME 隔离真实配置；缺文件跳过，缺项目/字段或 false 拒绝。
-for config in '{}' '{"projects":{}}' "{\"projects\":{\"$(pwd -P)\":{}}}" "{\"projects\":{\"$(pwd -P)\":{\"hasTrustDialogAccepted\":false}}}"; do
+# 1b. 信任匹配：缺记录只警告，显式 false 拒绝；true 优先于其他候选的 false。
+for config in '{}' '{"projects":{}}' "{\"projects\":{\"$(pwd -P)\":{}}}"; do
   printf '%s\n' "$config" > "$T/home/.claude.json"
   rm -f "$T/args.claude"
-  set +e; run review "$D" --agent claude >/dev/null 2>"$T/err"; rc=$?; set -e
-  [[ $rc -eq 2 && ! -f "$T/args.claude" ]] || fail "未信任应退出 2 且不派单"
-  grep -qx '工作区未被 Claude Code 信任：请在项目目录交互式启动一次 claude 并选择信任，然后说「继续」' "$T/err" || fail "缺少信任引导"
+  run review "$D" --agent claude >/dev/null 2>"$T/err" || fail "缺信任记录应继续派单"
+  [[ -f "$T/args.claude" && $(wc -l < "$T/err") -eq 1 ]] || fail "缺记录应只警告一行且调用 CLI"
+  grep -qx '未在 ~/.claude.json 找到本项目的信任记录，若子进程报权限错误请先交互式信任' "$T/err" || fail "缺少信任警告"
 done
-printf '{"projects":{"%s":{"hasTrustDialogAccepted":true}}}\n' "$(pwd -P)" > "$T/home/.claude.json"
-run review "$D" --agent claude >/dev/null || fail "已信任应正常派单"
+printf '{"projects":{"%s":{"hasTrustDialogAccepted":false}}}\n' "$(pwd -P)" > "$T/home/.claude.json"
+rm -f "$T/args.claude"
+set +e; run review "$D" --agent claude >/dev/null 2>"$T/err"; rc=$?; set -e
+[[ $rc -eq 2 && ! -f "$T/args.claude" ]] || fail "明确未信任应退出 2 且不派单"
+grep -qx '工作区未被 Claude Code 信任：请在项目目录交互式启动一次 claude 并选择信任，然后说「继续」' "$T/err" || fail "缺少信任引导"
+trust_real="$(pwd -P)"
+ln -s "$trust_real" "$T/proj-link"
+printf '{"projects":{"%s":{"hasTrustDialogAccepted":true},"%s":{"hasTrustDialogAccepted":false}}}\n' "$trust_real" "$T/proj-link" > "$T/home/.claude.json"
+(cd "$T/proj-link"; run review "$D" --agent claude >/dev/null 2>"$T/err") || fail "软链接应匹配真实路径且 true 优先"
+[[ ! -s "$T/err" ]] || fail "匹配真实路径后不应警告"
+# 子目录只在仓库根有信任记录；worktree 只在主仓库有信任记录。
+mkdir -p "subdir/$D"
+(cd subdir; run review "$D" --checks ../AGENTS.md --agent claude >/dev/null 2>"$T/err") || fail "子目录应匹配 git 根路径"
+[[ ! -s "$T/err" ]] || fail "匹配 git 根路径后不应警告"
+git worktree add -q --detach "$T/worktree" HEAD
+mkdir -p "$T/worktree/$D"
+cp AGENTS.md "$T/worktree/AGENTS.md"
+(cd "$T/worktree"; run review "$D" --agent claude >/dev/null 2>"$T/err") || fail "worktree 应匹配主仓库路径"
+[[ ! -s "$T/err" ]] || fail "匹配主仓库后不应警告"
+git worktree remove --force "$T/worktree"
 rm "$T/home/.claude.json"
 run review "$D" --agent claude >/dev/null || fail "配置文件缺失应跳过信任检测"
 

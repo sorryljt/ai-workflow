@@ -64,7 +64,7 @@
 - 未初始化项目的预检偶尔漏列 `dev`（README 里有启动命令时也可能漏），不影响不需要运行中服务的 AC。（P20）
 - `/viktor-init` 重复执行时，可能对"约定 / 禁区"也提出差异（例如把 `.claude/` 从禁区移除）；只在用户确认后才改，但确认前请留意这类改动。（P21）
 - **Codex 端只验证了基本流程**：S 档派单、JVM 项目的沙箱参数（review / check 能跑 Maven 与 Testcontainers）、子进程不提权。M / L 档、续接、blocked / manual 路径、交付报告只在 Claude Code 端做过真实模型验证。
-- Codex 的 workspace-write 沙箱（含 network_access=true）会挡住 colima 的 Docker socket，Testcontainers 集成测试在 Codex 子进程里无法执行；涉及真实库证据的关键 AC 在 Codex 端会判 blocked，需要在 Claude Code 端验收。
+- Codex / colima 完整验收仍未通过：原回归遇到 socket 访问问题；2026-09-19 在 workspace-write（含 network_access=true）下加入 colima 目录后 `docker ps` 成功，但 Testcontainers 未发现 socket；再加 `DOCKER_HOST` 后连接成功，Ryuk 挂载 socket 报 `operation not supported`。涉及真实库证据的关键 AC 仍需处理环境后验收，尝试参数与报错见 [下一版待办](docs/2026-09-19--next-backlog.md)。
 
 ## [1.0.1] - 2026-09-18
 

@@ -69,9 +69,12 @@ git add -A && git commit -m "chore: add fe-ai-workflow"
 ```viktor-checks
 typecheck: pnpm tsc --noEmit
 test: pnpm vitest run
+verify: mvn verify           # 可选，完整验收，只有 check 跑
 e2e: pnpm playwright test    # 可选
-dev: pnpm dev                # 可选
+dev: pnpm dev                # 可选，启动入口
 ```
+
+块后面的 `### 运行前提` 节写执行目录和外部环境（数据库、容器运行时），会一起交给独立进程。
 
 Stop hook 只在源码改动指纹变化时运行 typecheck / lint / test；失败反馈给 Agent 修复，同一回合连续 3 次失败后放行并提示用户。支持 git worktree 和 monorepo 子包。命令必须是非 watch 模式。
 

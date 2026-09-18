@@ -7,7 +7,7 @@ fail(){ echo "FAIL: $1" >&2; exit 1; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/bin" "$T/proj/docs/changes/2026-09-16--x"
 cd "$T/proj"; git init -q; git -c user.email=a@b -c user.name=t commit -q --allow-empty -m init
-printf -- '- 主干分支：main\n' > AGENTS.md
+printf -- '- 主干分支：main\n\n```viktor-checks\ntest: npm test -- --run\n```\n' > AGENTS.md
 printf -- '---\nstatus: in-progress\ntier: M\n---\n# x\n' > docs/changes/2026-09-16--x/plan.md
 D="docs/changes/2026-09-16--x"
 mkfake(){ # mkfake <name> <behaviour>
@@ -116,7 +116,7 @@ git -C "$T/proj" reset -q 2>/dev/null || true
 
 # 6f. 事后审查无 base_tree：基线 = 与主干的 merge-base（分支已提交 + 工作区改动都在内），创建 plan.md 不影响基线；
 #     快照保留"已跟踪但被 gitignore"的文件；产物未跟踪 / 已跟踪 / 已暂存都不影响指纹；快照失败返回非零且无输出
-mkdir -p "$T/p6"; cd "$T/p6"; git init -q -b main; git -c user.email=a@b -c user.name=t commit -q --allow-empty -m init
+mkdir -p "$T/p6"; cd "$T/p6"; git init -q -b main; printf -- '```viktor-checks\ntest: npm test -- --run\n```\n' > AGENTS.md; git add -A; git -c user.email=a@b -c user.name=t commit -q -m init
 printf 'a\n' > app.ts; git add -A; git -c user.email=a@b -c user.name=t commit -qm base; mb=$(git rev-parse HEAD)
 git checkout -q -b feat; printf 'b\n' > app.ts; git add -A; git -c user.email=a@b -c user.name=t commit -qm feat   # 功能已提交，工作区干净
 mkdir -p "$D"; printf -- '---\nstatus: in-progress\ntier: S\n---\n' > "$D/plan.md"                                    # 创建 plan 让工作区变脏
@@ -148,9 +148,26 @@ printf '```viktor-checks\ntest: npm test -- --run\n```\n### 运行前提\n- 执�
 mkfake claude "writeres check pass"
 run check "$D" --checks "$T/checks.txt" >/dev/null || fail "--checks 应可用"
 grep -q "npm test -- --run" "$D/.check.prompt.md" && grep -q "执行目录" "$D/.check.prompt.md" || fail "--checks 内容未传入提示词"
-rm -f "$T/proj/AGENTS.md"; run check "$D" >/dev/null || true
-grep -q "未找到检查命令" "$D/.check.prompt.md" || fail "无配置时提示词应说明未初始化"
-printf -- '- 主干分支：main\n' > "$T/proj/AGENTS.md"
+rm -f "$T/proj/AGENTS.md"; rm -f "$D/.check.prompt.md"
+set +e; run check "$D" >/dev/null 2>"$T/err"; rc=$?; set -e
+[[ $rc -eq 2 ]] && grep -q "未找到检查命令" "$T/err" && [[ ! -f "$D/.check.prompt.md" ]] || fail "无配置时应退出 2 且不派单，实际 $rc"
+# 运行前提两种写法都传入子进程；`### 运行前提` 是文件末节时最后一行不丢
+printf -- '- 主干分支：main\n- 运行前提：ONLY_TEST_DB\n\n```viktor-checks\ntest: npm test -- --run\n```\n' > "$T/proj/AGENTS.md"
+run check "$D" >/dev/null || fail "有块时应可派单"
+grep -q "ONLY_TEST_DB" "$D/.check.prompt.md" || fail "行式运行前提未传入提示词"
+printf -- '- 主干分支：main\n\n```viktor-checks\ntest: npm test -- --run\n```\n\n### 运行前提\n- 执行目录：server\n- ONLY_LAST_DB\n' > "$T/proj/AGENTS.md"
+run check "$D" >/dev/null || fail "有块时应可派单"
+grep -q "ONLY_LAST_DB" "$D/.check.prompt.md" && grep -q "执行目录：server" "$D/.check.prompt.md" || fail "末节运行前提丢行"
+printf -- '- 主干分支：main\n\n```viktor-checks\ntest: npm test -- --run\n```\n' > "$T/proj/AGENTS.md"
+# 正常结束：子进程登记的后台 pid 属于本轮进程组 → 被清理；不属于的只报告
+mkfake claude "d=\$VIKTOR_RESOURCES; (sleep 61.8; true) & echo pid:\$! >> \$d; echo pid:1 >> \$d; writeres check pass"
+run check "$D" >/dev/null 2>"$T/err" || fail "正常结束应返回 0"
+sleep 1; pgrep -f "^sleep 61\.8$" >/dev/null && fail "正常结束后登记的后台进程仍在运行" || true
+grep -q "未处理" "$T/err" || fail "非本轮进程应只报告"
+# S 档 plan 没有验收标准节：inputs-digest 报错而不是给出可复用的摘要
+printf -- '---\nstatus: in-progress\ntier: S\n---\n# x\n\n问题：示例\nAC-1：旧行为\n' > "$D/plan.md"
+"$SPAWN" inputs-digest "$D" >/dev/null 2>&1 && fail "无验收标准节应失败" || true
+printf -- '---\nstatus: in-progress\ntier: M\n---\n# x\n\n## 验收标准\n- [ ] AC-1：a\n' > "$D/plan.md"
 # 超时：子进程登记一个带 run_id 的临时目录和一个不带的，前者被清理、后者只报告；子进程再起的孙进程也被终止
 mkfake claude "d=\$VIKTOR_RESOURCES; mkdir -p $T/res-\$VIKTOR_RUN_ID $T/res-other; echo dir:$T/res-\$VIKTOR_RUN_ID >> \$d; echo dir:$T/res-other >> \$d; (sleep 61.7; true) & echo pid:\$! >> \$d; sleep 61.7"
 set +e; VIKTOR_SPAWN_TIMEOUT=2 run check "$D" >/dev/null 2>"$T/err"; rc=$?; set -e

@@ -24,16 +24,20 @@ description: 首次接入 viktor 工作流时初始化项目：探测技术栈�
    - 技术栈：<语言 / 框架 / 测试框架>
    - 构建工具：<pnpm / npm / mvn / gradle …>
    - 主干分支：main
-   - 运行前提：<需要什么外部环境，例如本地数据库、容器运行时；没有就写"无">
-   - 命令验证：test 已验证（xx 个执行）；typecheck 已验证；e2e 未验证：<原因>
+   - 命令验证：test 已验证（xx 个执行）；typecheck 已验证；verify 未验证：<原因>
 
    ```viktor-checks
    typecheck: pnpm tsc --noEmit
    lint: pnpm eslint .
    test: pnpm vitest run
+   verify: mvn -pl app verify
    e2e: pnpm playwright test
    dev: pnpm dev
    ```
+
+   ### 运行前提
+   - 执行目录：<命令在哪个目录跑；根目录写 `.`>
+   - <需要什么外部环境，例如本地数据库、容器运行时，以及怎么判断就绪；没有就写"无"。不写密钥>
 
    ### 约定（只写不明显的）
    - …
@@ -46,7 +50,8 @@ description: 首次接入 viktor 工作流时初始化项目：探测技术栈�
    - 每行 `key: 命令`，命令必须单行、非交互、非 watch 模式（例如用 `vitest run` 而不是 `vitest`）。
    - 项目没有的检查直接省略该行，不写占位符。
    - monorepo：AGENTS.md 放在哪个目录，命令就在哪个目录执行；会话从子包启动时优先读子包的 AGENTS.md。
-   - `e2e`、`dev` 供 viktor-code / viktor-check 使用，hook 不执行。
+   - 键按用途分：`typecheck` / `lint` / `test` 是快速检查（几分钟内跑完，hook 和 code 完成时执行）；`verify` 是完整验收入口（慢、可能需要环境，只有 check 执行，可选）；`e2e` 供 check 使用；`dev` 是启动入口，不是要等它退出的检查。项目只有一套慢测试时，想办法找出快速子集放进 `test`（例如按模块或按标签），找不到就把慢的放 `verify`、`test` 留空并注明。
+   - `### 运行前提` 节紧跟在块后面：执行目录、外部环境与就绪条件；spawn 会把块和这一节一起交给子进程。
    - 标了"未验证"的命令照写，viktor-check 首次执行时以当轮结果判定。
 6. **放行检查命令**：review / check 在独立进程（`claude -p` / `codex exec`）中运行，不继承当前会话的授权。把 `viktor-checks` 里的每条命令（`dev` 除外）写进 `.claude/settings.json` 的 `permissions.allow`，形如 `Bash(npm test)`、`Bash(npm run typecheck)`；测试框架的直接调用也放行一条（例如 `Bash(npx vitest run:*)`）。已有的规则保留，不重复添加。`install.sh` / `upgrade.sh` 合并 settings.json 时只替换 viktor-gate 的 hook 条目，`permissions` 原样保留。
 7. **确保有基线 commit**：`git rev-parse HEAD` 失败（仓库还没有任何提交）时，提示用户先提交一次，否则独立审查拿不到 diff。

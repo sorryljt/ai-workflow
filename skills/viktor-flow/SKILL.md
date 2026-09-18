@@ -26,7 +26,7 @@ description: 一个入口跑完整个开发流程（判档 → plan → code →
 2. 没有候选：说明没有可续接的需求，结束。
 3. 一个候选：直接续接。多个：列出（需求名 / 停在哪个节点 / 更新时间）让用户选。
 4. 每个候选可选：**继续**（从 `stage` 的下一个节点开始）/ **归档**（`status: archived`，之后不再列出）/ **忽略**（这次不管）。
-5. 续接顺序（任何情况不绕过 review 直接进 check）：
+5. 续接顺序（任何情况不绕过 review 直接进 check）。先看 `stage`：还没进入审查的（`stage` 为 `plan` 或 `code`，或 `code` 未完成）直接按下表恢复，不比指纹；已经进入审查的（`stage` 为 `review` / `check`）按下面三步：
    1. 算代码指纹（`bash <workflow-dir>/scripts/viktor-spawn.sh fingerprint`；命令失败视为已变）对 `verified.review`：不一致 → 从 review 开始（复审模式，审上一轮快照之后的全部变化）。
    2. 一致 → 算验收输入摘要（`viktor-spawn.sh inputs-digest <需求目录>`）对 `verified.inputs`：不一致（AC、证据要求或运行配置变了）→ 从 check 开始。
    3. 都一致 → 按 `stage` 的下一步继续。`stage_result` 为 `blocked` / `error` 的节点即使一致也重跑该节点（环境恢复后直接重验，但仍先经过第 1 步）。
@@ -51,7 +51,7 @@ description: 一个入口跑完整个开发流程（判档 → plan → code →
 | 停下的地方 | 触发条件 |
 |---|---|
 | plan 确认 | M/L 档 plan 写完 |
-| 缺前置 | AGENTS.md 无 viktor-checks 块 / 无测试框架 → 建议先 viktor-init |
+| 缺前置 | 无测试框架 → 建议先 viktor-init；无 viktor-checks 块不停，plan / code 做预检写入 `## 本轮运行配置`，预检推导不出命令才停 |
 | 计划偏离 / 升档 | code 中发现计划不成立或范围超出档位 |
 | 审查超阈值 | 2 轮复审后仍有 BLOCKING |
 | 验收失败 | check 修复一次后仍 ❌，或 AC 无法验证 |

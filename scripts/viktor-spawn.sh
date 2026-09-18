@@ -2,7 +2,7 @@
 # viktor-spawn.sh — 在独立进程中运行 review / check
 #
 # 用法：viktor-spawn.sh <review|check> <changes-dir> [--agent claude|codex] [--checks <file>] [--tier S|M|L] [--main <branch>] [--background]
-#   --checks 主会话解析出的本轮运行配置文件（viktor-checks 块 + 运行前提），显式传给子进程；不传则退回读 AGENTS.md 的块
+#   --checks 主会话解析出的本轮运行配置文件（viktor-checks 块 + 执行目录 + 运行前提），显式传给子进程；不传则读 AGENTS.md 的块与运行前提；两者都没有则退出 2，子进程不自行探测
 #       viktor-spawn.sh snapshot                    输出当前工作区快照的 tree（含未提交与未跟踪文件，不动索引），供 plan.md 的 base_tree 使用
 #       viktor-spawn.sh fingerprint                 输出当前代码指纹（工作区快照 tree，排除 docs/changes 与 docs/knowledge），供 plan.md 的 verified 使用
 #       viktor-spawn.sh inputs-digest <changes-dir> 输出验收输入摘要（plan.md 的验收标准节 + 本轮运行配置 + 项目 viktor-checks 块的哈希），供 verified.inputs 使用
@@ -42,6 +42,7 @@ case "$ROLE" in
   inputs-digest)
     [[ -f "$DIR/plan.md" ]] || { echo "缺少 $DIR/plan.md" >&2; exit 2; }
     section(){ awk -v h="$1" '/^## /{p=(index($0,h)==1)} p' "$DIR/plan.md"; }
+    [[ -n "$(section "## 验收标准" | grep -v '^## ' | grep -v '^[[:space:]]*$')" ]] || { echo "$DIR/plan.md 没有 '## 验收标准' 节，无法生成验收输入摘要" >&2; exit 2; }
     { section "## 验收标准"; section "## 本轮运行配置"
       [[ -f AGENTS.md ]] && sed -n '/^[[:space:]]*```viktor-checks[[:space:]]*$/,/^[[:space:]]*```[[:space:]]*$/p' AGENTS.md; } | tr -d '\r' | shasum | cut -c1-12
     exit 0;;
@@ -96,10 +97,12 @@ if [[ -n "$CHECKS_FILE" ]]; then
   CHECKS="$(cat "$CHECKS_FILE")"
 elif [[ -f AGENTS.md ]]; then
   CHECKS="$(sed -n '/^[[:space:]]*```viktor-checks[[:space:]]*$/,/^[[:space:]]*```[[:space:]]*$/p' AGENTS.md | tr -d '\r')"
-  PRE="$(sed -n '/^### 运行前提/,/^### /p' AGENTS.md | sed '$d' | tr -d '\r')"
+  # 运行前提：`### 运行前提` 节（到下一个标题或文件末尾）或 `- 运行前提：…` 一行，两种写法都收
+  PRE="$( { awk '/^#/{p=0} /^###[[:space:]]*运行前提/{p=1} p' AGENTS.md; grep -E '^[[:space:]]*-[[:space:]]*运行前提[：:]' AGENTS.md; } | tr -d '\r' | awk 'NF' | awk '!seen[$0]++')"
   [[ -n "$PRE" ]] && CHECKS="$CHECKS"$'\n'"$PRE"
 fi
-[[ -n "${CHECKS:-}" ]] || CHECKS="（未找到检查命令：项目未初始化。能从仓库推断就用推断的命令并在报告里注明来源；推断不了写 result: error）"
+# 子进程不自行探测命令：没有配置就不派单，由主会话预检后以 --checks 传入
+[[ -n "${CHECKS:-}" ]] || { echo "未找到检查命令：AGENTS.md 没有 viktor-checks 块，且未传 --checks。主会话先做预检（写入 plan.md 的 '## 本轮运行配置'）再派单，或运行 /viktor-init。" >&2; exit 2; }
 
 RUN_ID="$(date +%Y%m%d%H%M%S)-$$"
 PROMPT="$(sed -e "s#{{RUN_ID}}#$RUN_ID#g" -e "s#{{PREV_TREE}}#$PREV_TREE#g" -e "s#{{CHANGES_DIR}}#$DIR#g" -e "s#{{TIER}}#$TIER#g" -e "s#{{DIFF_BASE}}#$BASE#g" -e "s#{{MAIN_BRANCH}}#$MAIN#g" -e "s#{{WORKFLOW_DIR}}#$WF#g" "$PROMPT_TPL")"
@@ -139,33 +142,46 @@ kill_tree() {  # 递归终止进程树（无 setsid 的可移植做法）
   local p="$1" c; for c in $(pgrep -P "$p" 2>/dev/null); do kill_tree "$c"; done
   kill "$p" 2>/dev/null; sleep 0.2; kill -9 "$p" 2>/dev/null
 }
+CHILD_PID=""; CHILD_PGID=""; OWN_PG=0
 run_with_timeout() {  # 可移植的超时（macOS 无 timeout / setsid）；有 perl 时把子进程放进独立进程组
-  local pid waited=0 pg=0
+  local pid waited=0
   if command -v perl >/dev/null 2>&1; then
-    perl -e 'setpgrp(0,0); exec @ARGV or die' -- "${CMD[@]}" >"$LOG" 2>&1 & pid=$!; pg=1
+    perl -e 'setpgrp(0,0); exec @ARGV or die' -- "${CMD[@]}" >"$LOG" 2>&1 & pid=$!; OWN_PG=1
   else
     "${CMD[@]}" >"$LOG" 2>&1 & pid=$!
   fi
+  CHILD_PID="$pid"
+  # 本轮进程组：setpgrp 后子进程的 pgid 就是它的 pid；ps 报不出这个值（受限环境）就视为不可判定，pid 类资源只报告不杀
+  if [[ $OWN_PG -eq 1 && "$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')" == "$pid" ]]; then CHILD_PGID="$pid"; else CHILD_PGID=""; fi
   while kill -0 "$pid" 2>/dev/null; do
     sleep 1; waited=$((waited + 1))
     if [[ $waited -ge $TIMEOUT ]]; then
-      if [[ $pg -eq 1 ]]; then kill -- "-$pid" 2>/dev/null; sleep 1; kill -9 -- "-$pid" 2>/dev/null; else kill_tree "$pid"; fi
+      if [[ $OWN_PG -eq 1 ]]; then kill -- "-$pid" 2>/dev/null; sleep 1; kill -9 -- "-$pid" 2>/dev/null; else kill_tree "$pid"; fi
       echo "TIMEOUT" >>"$LOG"; return 124
     fi
   done
   wait "$pid"
 }
-cleanup_resources() {  # 只清理本轮创建且带 run_id 的资源：container:<name> / dir:<path> / pid:<n>；其余只报告
+reap_group() {  # 子进程结束后（正常、失败、超时都一样），同一进程组里的残留进程一律终止
+  [[ $OWN_PG -eq 1 && -n "$CHILD_PID" ]] || return 0
+  kill -- "-$CHILD_PID" 2>/dev/null || return 0
+  sleep 0.5; kill -9 -- "-$CHILD_PID" 2>/dev/null || true
+}
+cleanup_resources() {  # 只清理本轮创建的资源：container:<name> / dir:<path> 要求名字含 run_id；pid:<n> 要求属于本轮子进程的进程组；其余只报告
   [[ -s "$RES" ]] || return 0
-  local line kind id left=""
+  local line kind id left="" pg
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
     kind="${line%%:*}"; id="${line#*:}"
-    if [[ "$id" != *"$RUN_ID"* ]]; then left+="  未处理（不含本轮 run_id）：$line"$'\n'; continue; fi
     case "$kind" in
-      container) command -v docker >/dev/null 2>&1 && docker rm -f "$id" >/dev/null 2>&1 || left+="  容器未清理：$id"$'\n';;
-      dir)       [[ -d "$id" ]] && rm -rf -- "$id" || true;;
-      pid)       kill_tree "$id";;
+      container) [[ "$id" == *"$RUN_ID"* ]] || { left+="  未处理（不含本轮 run_id）：$line"$'\n'; continue; }
+                 command -v docker >/dev/null 2>&1 && docker rm -f "$id" >/dev/null 2>&1 || left+="  容器未清理：$id"$'\n';;
+      dir)       [[ "$id" == *"$RUN_ID"* ]] || { left+="  未处理（不含本轮 run_id）：$line"$'\n'; continue; }
+                 [[ -d "$id" ]] && rm -rf -- "$id" || true;;
+      pid)       [[ "$id" =~ ^[0-9]+$ && "$id" -gt 1 && "$id" != "$$" && "$id" != "$PPID" ]] || { left+="  未处理（非法 pid）：$line"$'\n'; continue; }
+                 kill -0 "$id" 2>/dev/null || continue
+                 pg="$(ps -o pgid= -p "$id" 2>/dev/null | tr -d ' ')"
+                 if [[ -n "$CHILD_PGID" && "$pg" == "$CHILD_PGID" ]]; then kill_tree "$id"; else left+="  未处理（不属于本轮进程组）：$line"$'\n'; fi;;
       *)         left+="  未知类型：$line"$'\n';;
     esac
   done < "$RES"
@@ -190,12 +206,13 @@ verify() {  # verify <进程退出码>
 }
 
 if [[ $BG -eq 1 ]]; then
-  ( run_with_timeout; rc=$?; cleanup_resources; if [[ $rc -eq 124 ]]; then echo 2 > "$DIR/.$ROLE.done"; else verify "$rc" >/dev/null 2>&1; echo "$?" > "$DIR/.$ROLE.done"; fi ) &
+  ( run_with_timeout; rc=$?; cleanup_resources; reap_group; if [[ $rc -eq 124 ]]; then echo 2 > "$DIR/.$ROLE.done"; else verify "$rc" >/dev/null 2>&1; echo "$?" > "$DIR/.$ROLE.done"; fi ) &
   echo "已在后台启动 ${ROLE}（${AGENT}），完成后 $DIR/.$ROLE.done 内为退出码"; exit 0
 fi
 
 run_with_timeout; rc=$?
 cleanup_resources
+reap_group
 if [[ $rc -eq 124 ]]; then echo "${ROLE} 超时（${TIMEOUT}s），日志：${LOG}" >&2; exit 2; fi
 verify "$rc"; vrc=$?
 if [[ "$ROLE" == review && $vrc -le 1 ]]; then t="$(snapshot_tree)" && printf '%s\n' "$t" > "$DIR/.review.tree" || echo "警告：本轮快照失败，未更新 .review.tree" >&2; fi

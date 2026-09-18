@@ -14,7 +14,8 @@
 #   VIKTOR_AGENT          claude | codex（优先级：--agent > VIKTOR_AGENT > 环境变量 CLAUDECODE/CLAUDE_PROJECT_DIR/CODEX_* > 命令存在性）
 #   VIKTOR_CLAUDE_ARGS    传给 claude 的额外参数（默认 "--permission-mode acceptEdits"；按 shell 规则解析，含空格的参数请加引号）
 #   注意：子进程不继承会话授权，检查命令需由 viktor-init 写入 .claude/settings.json 的 permissions.allow
-#   VIKTOR_CODEX_ARGS     传给 codex exec 的额外参数（默认 "--sandbox workspace-write"）
+#   VIKTOR_CODEX_ARGS     传给 codex exec 的额外参数（默认 "--sandbox workspace-write"；项目需要更宽沙箱时在 AGENTS.md 写 `- 子进程参数：codex --sandbox <值>`）
+#   两者含 --dangerously-skip-permissions / bypassPermissions / danger-full-access / --dangerously-bypass-approvals-and-sandbox 时拒绝派单（退出码 2）
 #   VIKTOR_SPAWN_TIMEOUT  秒，默认 480
 #   VIKTOR_WORKFLOW_DIR   工作流仓库目录（默认取本脚本所在仓库），用于定位 prompts/
 set -uo pipefail
@@ -127,11 +128,31 @@ if ! command -v "$AGENT" >/dev/null 2>&1; then
   echo "指定的工具 ${AGENT}（${WHY}）不在 PATH 中，不回退到其他工具。手动方式：把 $DIR/.$ROLE.prompt.md 作为新窗口的第一条消息发送" >&2
   exit 3
 fi
+# 子进程参数：环境变量 > AGENTS.md 项目信息节的 `- 子进程参数：codex --sandbox <值>`（仅 codex）> 默认
+PROJ_CODEX_ARGS=""
+if [[ -f AGENTS.md ]]; then
+  PROJ_CODEX_ARGS="$(sed -n 's/^- 子进程参数：[[:space:]]*codex[[:space:]][[:space:]]*//p' AGENTS.md | head -1 | tr -d '\r' | sed 's/[[:space:]]*$//')"
+  if [[ -n "$PROJ_CODEX_ARGS" && ! "$PROJ_CODEX_ARGS" =~ ^--sandbox[[:space:]]+[a-z-]+$ ]]; then
+    echo "AGENTS.md 的“子进程参数”只支持 'codex --sandbox <值>'，实际为：${PROJ_CODEX_ARGS}" >&2; exit 2
+  fi
+fi
+case "$AGENT" in
+  claude) ARGS_SRC="VIKTOR_CLAUDE_ARGS"; ARGS="${VIKTOR_CLAUDE_ARGS:---permission-mode acceptEdits}";;
+  codex)  if [[ -n "${VIKTOR_CODEX_ARGS:-}" ]]; then ARGS_SRC="VIKTOR_CODEX_ARGS"; ARGS="$VIKTOR_CODEX_ARGS"
+          elif [[ -n "$PROJ_CODEX_ARGS" ]]; then ARGS_SRC="AGENTS.md 子进程参数"; ARGS="$PROJ_CODEX_ARGS"
+          else ARGS_SRC="默认参数"; ARGS="--sandbox workspace-write"; fi;;
+  *) echo "不支持的 VIKTOR_AGENT：$AGENT" >&2; exit 2;;
+esac
+# 子进程不得提权：跳过权限检查、全权限沙箱一律拒绝，不派单
+case "$ARGS" in
+  *danger-full-access*|*dangerously-bypass-approvals-and-sandbox*|*dangerously-skip-permissions*|*bypassPermissions*)
+    echo "拒绝派单：${ARGS_SRC} 含提权参数（${ARGS}）。子进程只能在项目放行的权限内运行：命令被拦就运行 /viktor-init 补齐放行规则；Codex 需要更宽的沙箱时，在 AGENTS.md 项目信息节写一行 '- 子进程参数：codex --sandbox <值>'（danger-full-access 同样拒绝）" >&2
+    exit 2;;
+esac
 echo "独立 ${ROLE}：使用 ${AGENT}（${WHY}）"
 case "$AGENT" in
-  claude) eval "EXTRA=(${VIKTOR_CLAUDE_ARGS:---permission-mode acceptEdits})"; CMD=(claude -p "$PROMPT" "${EXTRA[@]}");;
-  codex)  eval "EXTRA=(${VIKTOR_CODEX_ARGS:---sandbox workspace-write})"; CMD=(codex exec "${EXTRA[@]}" "$PROMPT");;
-  *) echo "不支持的 VIKTOR_AGENT：$AGENT" >&2; exit 2;;
+  claude) eval "EXTRA=(${ARGS})"; CMD=(claude -p "$PROMPT" "${EXTRA[@]}");;
+  codex)  eval "EXTRA=(${ARGS})"; CMD=(codex exec "${EXTRA[@]}" "$PROMPT");;
 esac
 
 START=$(date +%s)

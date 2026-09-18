@@ -19,7 +19,7 @@ description: 派发独立审查：在新进程中审查本次改动的 diff，�
 3. 派单：`bash <workflow-dir>/scripts/viktor-spawn.sh review <需求目录> --agent <claude|codex，你当前运行所在的工具> [--checks <文件>]`（workflow-dir 通常为 `.workflow/fe-ai-workflow`）。项目有 `viktor-checks` 块就不传 `--checks`（spawn 自己读，项目配置权威）；没有时把 plan.md `## 本轮运行配置` 整节内容（块 + 环境前提）写到临时文件传入；两者都没有 spawn 会拒绝派单（退出码 2），先做预检。子进程只用同一个工具，不跨工具。同步等待，退出码含义：
    - 0：通过。`stage: review`、`stage_result: ok`，并把 `bash <workflow-dir>/scripts/viktor-spawn.sh fingerprint` 的输出写入 `verified.review`（命令失败就不写，续接时会重新审）。
    - 1：有 BLOCKING。进入修复循环（下一节）。
-   - 2：审查进程失败（超时、崩溃、无产物，或审查者报告检查命令无法执行）。不计入复审轮次。输出需要处理卡，附 `.review.log` 路径；若是权限问题，回复行给出「运行 /viktor-init 补齐权限」的选项。
+   - 2：审查进程失败（超时、崩溃、无产物，或审查者报告检查命令无法执行）。不计入复审轮次。输出需要处理卡，附 `.review.log` 路径；若是权限问题，回复行给出「运行 /viktor-init 补齐权限」的选项。**不得修改沙箱或权限参数（`VIKTOR_CODEX_ARGS` / `VIKTOR_CLAUDE_ARGS`、`--sandbox`、`--dangerously-*` 等）后重跑**，只能输出需要处理卡；spawn 也会拒绝这类参数。
    - 3：没有可用的 CLI。输出需要处理卡：让用户开一个新窗口，把 `.review.prompt.md` 的内容作为第一条消息发送，完成后回来说「继续」。
 4. 读取 review.md，`review_round` 加 1，只输出节点卡（有 BLOCKING 时在"问题"行下方缩进列出，每条一行：`  1. <位置>  <问题>`）：
 

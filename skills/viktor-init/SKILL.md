@@ -53,6 +53,7 @@ description: 首次接入 viktor 工作流时初始化项目：探测技术栈�
    - 所有命令都以 AGENTS.md 所在目录为工作目录（hook、code、子进程一致）；子模块写进命令本身（`mvn -pl server test` 或 `cd server && npm test`），不另设执行目录。
    - `### 运行前提` 节紧跟在块后面：外部环境与就绪条件；spawn 会把块和这一节一起交给子进程。
    - 标了"未验证"的命令照写，viktor-check 首次执行时以当轮结果判定。
+   - Codex 下默认沙箱（`workspace-write`）跑不了检查命令时（例如 JVM 项目的 Maven），可在项目信息节加一行 `- 子进程参数：codex --sandbox <值>`，spawn 只从这一行读取；`danger-full-access` 会被拒绝，不要写。
 6. **放行检查命令**：review / check 在独立进程（`claude -p` / `codex exec`）中运行，不继承当前会话的授权。把 `viktor-checks` 里的每条命令（`dev` 除外）写进 `.claude/settings.json` 的 `permissions.allow`，形如 `Bash(npm test)`、`Bash(npm run typecheck)`；测试框架的直接调用也放行一条（例如 `Bash(npx vitest run:*)`）。已有的规则保留，不重复添加。`install.sh` / `upgrade.sh` 合并 settings.json 时只替换 viktor-gate 的 hook 条目，`permissions` 原样保留。
 7. **确保有基线 commit**：`git rev-parse HEAD` 失败（仓库还没有任何提交）时，提示用户先提交一次，否则独立审查拿不到 diff。
 8. **创建知识目录**：运行 `bash <workflow-dir>/scripts/knowledge.sh rebuild` 生成 `docs/knowledge/index.md`（目录不存在会创建）。若发现旧格式的 `docs/knowledge/decisions.md` / `pitfalls.md` / `glossary.md`，先运行 `knowledge.sh migrate` 拆成条目文件。

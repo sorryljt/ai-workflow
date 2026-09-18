@@ -18,7 +18,7 @@ description: 派发独立验收：在新进程中以用户视角逐条验证验�
    - 0：`pass` 或 `manual`（仅非关键 AC 待人工）。`stage: check`、`stage_result: ok`，写 `verified.check`（指纹）和 `verified.inputs`（`viktor-spawn.sh inputs-digest <需求目录>` 的输出：AC 列表 + 证据要求 + 本轮运行配置的摘要）。manual 时把 check.md 的 `pending` 原样带进报告的"待人工"，不表述为全部验证完成。
    - 1：`failed`，观察到行为错误。回到 viktor-code 修复（先补能复现失败的测试），修复后先派 review 复审，再派 check；仍失败则 `stage_result: blocked`，输出需要处理卡。
    - 4：`blocked`，关键 AC 证据缺失或环境不可用。**不改业务代码**。`stage_result: blocked`，输出需要处理卡，原因写明缺哪条 AC 的证据、需要什么环境；用户处理后说"继续"，flow 会先核对代码指纹再重跑 check。
-   - 2 / 3：同 viktor-review（进程失败 / 无 CLI）。
+   - 2 / 3：同 viktor-review（进程失败 / 无 CLI）。**不得修改沙箱或权限参数后重跑**，只能输出需要处理卡。
 2. **👀 项的补验（可选）**：子进程通常没有浏览器。如果你（主会话）有浏览器工具，可以对 check.md 里的 👀 项做一次浏览器验证，结果写回 check.md 对应行，验证方式标注"主会话浏览器验证"；✅ 的项不重验；没有浏览器工具就跳过，👀 留给人。
 3. 只输出节点卡（有 ❌ 时在"AC"行下方缩进列出，每条一行）：
 

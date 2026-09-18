@@ -207,4 +207,25 @@ VIKTOR_AGENT=claude run review "$D" >/dev/null || fail "VIKTOR_AGENT=claude 应�
 rm -f "$D/.review.done"; VIKTOR_AGENT=claude run review "$D" --background >/dev/null
 for i in 1 2 3 4 5; do [[ -f "$D/.review.done" ]] && break; sleep 1; done
 [[ "$(cat "$D/.review.done")" == "0" ]] || fail "后台模式未写 .done=0"
+
+# 8. 子进程不得提权：两种工具的提权参数都拒绝派单（退出码 2、不调用 CLI）；项目级沙箱值只接受 --sandbox，且同样拒绝 danger-full-access
+mkfake claude "writeres review pass"; mkfake codex "writeres review pass"
+for a in '--dangerously-skip-permissions' '--permission-mode bypassPermissions'; do
+  rm -f "$T/args.claude"
+  set +e; VIKTOR_CLAUDE_ARGS="$a" run review "$D" --agent claude >/dev/null 2>"$T/err"; rc=$?; set -e
+  [[ $rc -eq 2 && ! -f "$T/args.claude" ]] && grep -q "拒绝派单" "$T/err" || fail "claude 提权参数应拒绝派单：${a}（rc=${rc}）"
+done
+for a in '--sandbox danger-full-access' '--dangerously-bypass-approvals-and-sandbox'; do
+  rm -f "$T/args.codex"
+  set +e; VIKTOR_CODEX_ARGS="$a" run review "$D" --agent codex >/dev/null 2>"$T/err"; rc=$?; set -e
+  [[ $rc -eq 2 && ! -f "$T/args.codex" ]] && grep -q "拒绝派单" "$T/err" || fail "codex 提权参数应拒绝派单：${a}（rc=${rc}）"
+done
+cp "$T/proj/AGENTS.md" "$T/agents.bak"
+printf -- '- 子进程参数：codex --sandbox read-only\n' >> "$T/proj/AGENTS.md"; rm -f "$T/args.codex"
+run review "$D" --agent codex >/dev/null || fail "项目级沙箱值应可派单"
+grep -qx "read-only" "$T/args.codex" && ! grep -qx "workspace-write" "$T/args.codex" || fail "项目级沙箱值未传给 codex"
+cp "$T/agents.bak" "$T/proj/AGENTS.md"; printf -- '- 子进程参数：codex --sandbox danger-full-access\n' >> "$T/proj/AGENTS.md"; rm -f "$T/args.codex"
+set +e; run review "$D" --agent codex >/dev/null 2>"$T/err"; rc=$?; set -e
+[[ $rc -eq 2 && ! -f "$T/args.codex" ]] && grep -q "拒绝派单" "$T/err" || fail "项目级 danger-full-access 应拒绝派单（rc=${rc}）"
+cp "$T/agents.bak" "$T/proj/AGENTS.md"
 echo PASS

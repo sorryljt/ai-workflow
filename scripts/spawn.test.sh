@@ -208,6 +208,17 @@ rm -f "$D/.review.done"; VIKTOR_AGENT=claude run review "$D" --background >/dev/
 for i in 1 2 3 4 5; do [[ -f "$D/.review.done" ]] && break; sleep 1; done
 [[ "$(cat "$D/.review.done")" == "0" ]] || fail "后台模式未写 .done=0"
 
+# 7b. 未信任的工作区：日志含 "has not been trusted" 且子进程失败 / 报 error → 退出 2 并提示信任；子进程成功时不干预
+TRUSTLINE='Ignoring 3 permissions.allow entries from .claude/settings.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog.'
+mkfake claude "echo '$TRUSTLINE' >&2; writeres review error '无法执行 npm test'"
+set +e; run review "$D" >/dev/null 2>"$T/err"; rc=$?; set -e
+[[ $rc -eq 2 ]] && grep -q "未被信任" "$T/err" && grep -q "未被 Claude Code 信任" "$T/err" || fail "未信任 + result: error 应退出 2 并提示信任（rc=${rc}）"
+mkfake claude "echo '$TRUSTLINE' >&2; exit 1"
+set +e; run review "$D" >/dev/null 2>"$T/err"; rc=$?; set -e
+[[ $rc -eq 2 ]] && grep -q "未被信任" "$T/err" || fail "未信任 + 非零退出应退出 2 并提示信任（rc=${rc}）"
+mkfake claude "echo '$TRUSTLINE' >&2; writeres review pass"
+run review "$D" >/dev/null 2>"$T/err" || fail "未信任但审查通过时不应改变结果"
+
 # 8. 子进程不得提权：两种工具的提权参数都拒绝派单（退出码 2、不调用 CLI）；项目级沙箱值只接受 --sandbox，且同样拒绝 danger-full-access
 mkfake claude "writeres review pass"; mkfake codex "writeres review pass"
 for a in '--dangerously-skip-permissions' '--permission-mode bypassPermissions'; do

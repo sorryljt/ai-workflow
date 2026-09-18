@@ -227,15 +227,23 @@ verify() {  # verify <进程退出码>
   esac
 }
 
+# 未信任的工作区：Claude Code 忽略项目 .claude/settings.json 的 permissions.allow（日志里有 "has not been trusted"）
+untrusted() { grep -q "has not been trusted" "$LOG" 2>/dev/null; }
+TRUST_MSG="工作区未被 Claude Code 信任（未被信任时，子进程会忽略 .claude/settings.json 的放行规则）；请在项目目录（$(pwd)）交互式启动一次 claude 并选择信任，然后说「继续」。上级目录的信任不传递到独立 git 仓库"
+
 if [[ $BG -eq 1 ]]; then
-  ( run_with_timeout; rc=$?; cleanup_resources; reap_group; if [[ $rc -eq 124 ]]; then echo 2 > "$DIR/.$ROLE.done"; else verify "$rc" >/dev/null 2>&1; echo "$?" > "$DIR/.$ROLE.done"; fi ) &
+  ( run_with_timeout; rc=$?; cleanup_resources; reap_group
+    if [[ $rc -eq 124 ]]; then vrc=2; else verify "$rc" >/dev/null 2>&1; vrc=$?; fi
+    if { [[ $rc -ne 0 ]] || [[ $vrc -eq 2 ]]; } && untrusted; then vrc=2; echo "$TRUST_MSG" >> "$LOG"; fi
+    echo "$vrc" > "$DIR/.$ROLE.done" ) &
   echo "已在后台启动 ${ROLE}（${AGENT}），完成后 $DIR/.$ROLE.done 内为退出码"; exit 0
 fi
 
 run_with_timeout; rc=$?
 cleanup_resources
 reap_group
-if [[ $rc -eq 124 ]]; then echo "${ROLE} 超时（${TIMEOUT}s），日志：${LOG}" >&2; exit 2; fi
+if [[ $rc -eq 124 ]]; then echo "${ROLE} 超时（${TIMEOUT}s），日志：${LOG}" >&2; untrusted && echo "$TRUST_MSG" >&2; exit 2; fi
 verify "$rc"; vrc=$?
+if { [[ $rc -ne 0 ]] || [[ $vrc -eq 2 ]]; } && untrusted; then echo "$TRUST_MSG" >&2; exit 2; fi
 if [[ "$ROLE" == review && $vrc -le 1 ]]; then t="$(snapshot_tree)" && printf '%s\n' "$t" > "$DIR/.review.tree" || echo "警告：本轮快照失败，未更新 .review.tree" >&2; fi
 exit $vrc

@@ -54,7 +54,13 @@ description: 首次接入 viktor 工作流时初始化项目：探测技术栈�
    - `### 运行前提` 节紧跟在块后面：外部环境与就绪条件；spawn 会把块和这一节一起交给子进程。
    - 标了"未验证"的命令照写，viktor-check 首次执行时以当轮结果判定。
    - Codex 下默认沙箱（`workspace-write`）跑不了检查命令时（例如 JVM 项目的 Maven），可在项目信息节加一行 `- 子进程参数：codex --sandbox <值>`，spawn 只从这一行读取；`danger-full-access` 会被拒绝，不要写。
-6. **放行检查命令**：review / check 在独立进程（`claude -p` / `codex exec`）中运行，不继承当前会话的授权。把 `viktor-checks` 里的每条命令（`dev` 除外）写进 `.claude/settings.json` 的 `permissions.allow`，形如 `Bash(npm test)`、`Bash(npm run typecheck)`；测试框架的直接调用也放行一条（例如 `Bash(npx vitest run:*)`）。已有的规则保留，不重复添加。`install.sh` / `upgrade.sh` 合并 settings.json 时只替换 viktor-gate 的 hook 条目，`permissions` 原样保留。放行规则只在**已信任的工作区**生效：接入后必须在项目目录交互式打开一次 Claude Code 并选择信任，上级目录的信任不传递到独立 git 仓库；当前会话不是在项目目录交互式启动的，就在节点卡后提醒用户这一步。
+6. **放行检查命令**：review / check 在独立进程（`claude -p` / `codex exec`）中运行，不继承当前会话的授权。按下面的固定清单写进 `.claude/settings.json` 的 `permissions.allow`，不增不减：
+   - `viktor-checks` 里除 `dev` 外的每条命令，原样一条，形如 `Bash(npm test)`、`Bash(./mvnw -q verify)`；
+   - 该构建工具 / 测试框架的通配一条，形如 `Bash(./mvnw:*)`、`Bash(npx vitest run:*)`；
+   - `Bash(bash <workflow-dir>/scripts/knowledge.sh:*)`（review / check 的提示词都要求执行 lookup）；
+   - `dev` 也放行一条（check 只在 AC 明确需要运行中的服务时才后台启动它，并登记 pid）；
+   - 运行前提提到 Docker / 容器运行时的：`Bash(docker ps:*)`、`Bash(docker rm:*)`、`Bash(docker run:*)`、`Bash(docker stop:*)`。
+   已有的规则保留，不重复添加。`install.sh` / `upgrade.sh` 合并 settings.json 时只替换 viktor-gate 的 hook 条目，`permissions` 原样保留。放行规则只在**已信任的工作区**生效：接入后必须在项目目录交互式打开一次 Claude Code 并选择信任，上级目录的信任不传递到独立 git 仓库；当前会话不是在项目目录交互式启动的，就在节点卡后提醒用户这一步。
 7. **确保有基线 commit**：`git rev-parse HEAD` 失败（仓库还没有任何提交）时，提示用户先提交一次，否则独立审查拿不到 diff。
 8. **创建知识目录**：运行 `bash <workflow-dir>/scripts/knowledge.sh rebuild` 生成 `docs/knowledge/index.md`（目录不存在会创建）。若发现旧格式的 `docs/knowledge/decisions.md` / `pitfalls.md` / `glossary.md`，先运行 `knowledge.sh migrate` 拆成条目文件。
 

@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # viktor-spawn.sh — 在独立进程中运行 review / check
 #
-# 用法：viktor-spawn.sh <review|check> <changes-dir> [--agent claude|codex] [--tier S|M|L] [--main <branch>] [--background]
+# 用法：viktor-spawn.sh <review|check> <changes-dir> [--agent claude|codex] [--checks <file>] [--tier S|M|L] [--main <branch>] [--background]
+#   --checks 主会话解析出的本轮运行配置文件（viktor-checks 块 + 运行前提），显式传给子进程；不传则退回读 AGENTS.md 的块
 #       viktor-spawn.sh snapshot                    输出当前工作区快照的 tree（含未提交与未跟踪文件，不动索引），供 plan.md 的 base_tree 使用
 #       viktor-spawn.sh fingerprint                 输出当前代码指纹（工作区快照 tree，排除 docs/changes 与 docs/knowledge），供 plan.md 的 verified 使用
 #   --agent  主会话所在的工具；子进程只用同一个工具，不做跨工具回退
-# 退出码：0 通过（check 含"仅待人工"）；1 有 BLOCKING / 失败项；2 进程失败（超时、非零退出、无产物、产物不属于本轮 run_id、result: error）；3 无可用 CLI（提示词已打印，可手动开新窗口粘贴）
+# 退出码：0 通过（check 含 manual：仅非关键项待人工）；1 有 BLOCKING / 观察到行为失败（修代码）；2 进程失败（超时、非零退出、无产物、run_id 不符、result: error）；
+#         3 无可用 CLI；4 check blocked（关键 AC 证据缺失 / 环境不可用，不改业务代码）；3 无可用 CLI（提示词已打印，可手动开新窗口粘贴）
 #
 # 环境变量：
 #   VIKTOR_AGENT          claude | codex（优先级：--agent > VIKTOR_AGENT > 环境变量 CLAUDECODE/CLAUDE_PROJECT_DIR/CODEX_* > 命令存在性）
@@ -40,10 +42,11 @@ case "$ROLE" in
   fingerprint) t="$(snapshot_tree docs/changes docs/knowledge)" || exit 1; printf '%s\n' "${t:0:12}"; exit 0;;
 esac
 shift 2 2>/dev/null || true
-TIER=""; MAIN=""; BG=0; AGENT_ARG=""
+TIER=""; MAIN=""; BG=0; AGENT_ARG=""; CHECKS_FILE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --agent) AGENT_ARG="$2"; shift 2;;
+    --checks) CHECKS_FILE="$2"; shift 2;;
     --tier) TIER="$2"; shift 2;;
     --main) MAIN="$2"; shift 2;;
     --background) BG=1; shift;;
@@ -80,8 +83,20 @@ PREV_TREE="无"; [[ "$ROLE" == review && -f "$DIR/.review.tree" ]] && PREV_TREE=
 # 未跟踪文件用 intent-to-add 纳入 diff（不改变提交内容）
 git ls-files --others --exclude-standard -z 2>/dev/null | xargs -0 -r git add -N -- 2>/dev/null || true
 
+# 本轮运行配置：--checks 文件优先；否则读 AGENTS.md 的 viktor-checks 块 + "运行前提"节
+if [[ -n "$CHECKS_FILE" ]]; then
+  [[ -f "$CHECKS_FILE" ]] || { echo "--checks 文件不存在：${CHECKS_FILE}" >&2; exit 2; }
+  CHECKS="$(cat "$CHECKS_FILE")"
+elif [[ -f AGENTS.md ]]; then
+  CHECKS="$(sed -n '/^[[:space:]]*```viktor-checks[[:space:]]*$/,/^[[:space:]]*```[[:space:]]*$/p' AGENTS.md | tr -d '\r')"
+  PRE="$(sed -n '/^### 运行前提/,/^### /p' AGENTS.md | sed '$d' | tr -d '\r')"
+  [[ -n "$PRE" ]] && CHECKS="$CHECKS"$'\n'"$PRE"
+fi
+[[ -n "${CHECKS:-}" ]] || CHECKS="（未找到检查命令：项目未初始化。能从仓库推断就用推断的命令并在报告里注明来源；推断不了写 result: error）"
+
 RUN_ID="$(date +%Y%m%d%H%M%S)-$$"
 PROMPT="$(sed -e "s#{{RUN_ID}}#$RUN_ID#g" -e "s#{{PREV_TREE}}#$PREV_TREE#g" -e "s#{{CHANGES_DIR}}#$DIR#g" -e "s#{{TIER}}#$TIER#g" -e "s#{{DIFF_BASE}}#$BASE#g" -e "s#{{MAIN_BRANCH}}#$MAIN#g" -e "s#{{WORKFLOW_DIR}}#$WF#g" "$PROMPT_TPL")"
+PROMPT="${PROMPT//\{\{CHECKS\}\}/$CHECKS}"
 printf '%s\n' "$PROMPT" > "$DIR/.$ROLE.prompt.md"
 
 # 选择 CLI：主会话是谁就派谁，不做跨工具回退
@@ -110,14 +125,45 @@ esac
 
 START=$(date +%s)
 LOG="$DIR/.$ROLE.log"
-run_with_timeout() {  # 可移植的超时（macOS 无 timeout 命令）
-  "${CMD[@]}" >"$LOG" 2>&1 &
-  local pid=$! waited=0
+RES="$DIR/.$ROLE.resources"; : > "$RES"
+export VIKTOR_RUN_ID="$RUN_ID" VIKTOR_RESOURCES="$RES"
+
+kill_tree() {  # 递归终止进程树（无 setsid 的可移植做法）
+  local p="$1" c; for c in $(pgrep -P "$p" 2>/dev/null); do kill_tree "$c"; done
+  kill "$p" 2>/dev/null; sleep 0.2; kill -9 "$p" 2>/dev/null
+}
+run_with_timeout() {  # 可移植的超时（macOS 无 timeout / setsid）；有 perl 时把子进程放进独立进程组
+  local pid waited=0 pg=0
+  if command -v perl >/dev/null 2>&1; then
+    perl -e 'setpgrp(0,0); exec @ARGV or die' -- "${CMD[@]}" >"$LOG" 2>&1 & pid=$!; pg=1
+  else
+    "${CMD[@]}" >"$LOG" 2>&1 & pid=$!
+  fi
   while kill -0 "$pid" 2>/dev/null; do
     sleep 1; waited=$((waited + 1))
-    if [[ $waited -ge $TIMEOUT ]]; then kill "$pid" 2>/dev/null; sleep 1; kill -9 "$pid" 2>/dev/null; echo "TIMEOUT" >>"$LOG"; return 124; fi
+    if [[ $waited -ge $TIMEOUT ]]; then
+      if [[ $pg -eq 1 ]]; then kill -- "-$pid" 2>/dev/null; sleep 1; kill -9 -- "-$pid" 2>/dev/null; else kill_tree "$pid"; fi
+      echo "TIMEOUT" >>"$LOG"; return 124
+    fi
   done
   wait "$pid"
+}
+cleanup_resources() {  # 只清理本轮创建且带 run_id 的资源：container:<name> / dir:<path> / pid:<n>；其余只报告
+  [[ -s "$RES" ]] || return 0
+  local line kind id left=""
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    kind="${line%%:*}"; id="${line#*:}"
+    if [[ "$id" != *"$RUN_ID"* ]]; then left+="  未处理（不含本轮 run_id）：$line"$'\n'; continue; fi
+    case "$kind" in
+      container) command -v docker >/dev/null 2>&1 && docker rm -f "$id" >/dev/null 2>&1 || left+="  容器未清理：$id"$'\n';;
+      dir)       [[ -d "$id" ]] && rm -rf -- "$id" || true;;
+      pid)       kill_tree "$id";;
+      *)         left+="  未知类型：$line"$'\n';;
+    esac
+  done < "$RES"
+  [[ -n "$left" ]] && { echo "资源清理残留："; printf '%s' "$left"; } >&2
+  return 0
 }
 verify() {  # verify <进程退出码>
   local rc="$1"
@@ -130,17 +176,19 @@ verify() {  # verify <进程退出码>
     review:pass|check:pass) echo "${ROLE} 通过：${OUT}"; return 0;;
     check:manual) echo "${ROLE} 通过，有待人工项：${OUT}"; return 0;;
     review:blocked|check:failed) echo "${ROLE} 有问题：${OUT}"; return 1;;
+    check:blocked) echo "${ROLE} 阻塞：关键 AC 证据缺失或环境不可用，见 ${OUT}（不改业务代码）" >&2; return 4;;
     *:error) echo "${ROLE} 无法执行（见 ${OUT} 的说明，通常是检查命令未放行）" >&2; return 2;;
     *) echo "${OUT} 的 result 字段无法识别（${res}）" >&2; return 2;;
   esac
 }
 
 if [[ $BG -eq 1 ]]; then
-  ( run_with_timeout; rc=$?; if [[ $rc -eq 124 ]]; then echo 2 > "$DIR/.$ROLE.done"; else verify "$rc" >/dev/null 2>&1; echo "$?" > "$DIR/.$ROLE.done"; fi ) &
+  ( run_with_timeout; rc=$?; cleanup_resources; if [[ $rc -eq 124 ]]; then echo 2 > "$DIR/.$ROLE.done"; else verify "$rc" >/dev/null 2>&1; echo "$?" > "$DIR/.$ROLE.done"; fi ) &
   echo "已在后台启动 ${ROLE}（${AGENT}），完成后 $DIR/.$ROLE.done 内为退出码"; exit 0
 fi
 
 run_with_timeout; rc=$?
+cleanup_resources
 if [[ $rc -eq 124 ]]; then echo "${ROLE} 超时（${TIMEOUT}s），日志：${LOG}" >&2; exit 2; fi
 verify "$rc"; vrc=$?
 if [[ "$ROLE" == review && $vrc -le 1 ]]; then t="$(snapshot_tree)" && printf '%s\n' "$t" > "$DIR/.review.tree" || echo "警告：本轮快照失败，未更新 .review.tree" >&2; fi

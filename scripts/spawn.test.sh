@@ -141,6 +141,25 @@ set +e; out="$("$SPAWN" fingerprint 2>/dev/null)"; rc=$?; set -e
 [[ $rc -ne 0 && -z "$out" ]] || fail "快照失败应返回非零且无输出，实际 rc=$rc out=$out"
 rm -rf nested; cd "$T/proj"
 
+# 6g. check blocked → 4；--checks 文件传入子进程；未初始化时提示词含"未找到检查命令"；超时清理按 run_id 登记的资源；进程组终止子孙进程
+mkfake claude "writeres check blocked"
+set +e; run check "$D" >/dev/null 2>"$T/err"; rc=$?; set -e; [[ $rc -eq 4 ]] && grep -q "阻塞" "$T/err" || fail "check blocked 应返回 4，实际 $rc"
+printf '```viktor-checks\ntest: npm test -- --run\n```\n### 运行前提\n- 执行目录：.\n' > "$T/checks.txt"
+mkfake claude "writeres check pass"
+run check "$D" --checks "$T/checks.txt" >/dev/null || fail "--checks 应可用"
+grep -q "npm test -- --run" "$D/.check.prompt.md" && grep -q "执行目录" "$D/.check.prompt.md" || fail "--checks 内容未传入提示词"
+rm -f "$T/proj/AGENTS.md"; run check "$D" >/dev/null || true
+grep -q "未找到检查命令" "$D/.check.prompt.md" || fail "无配置时提示词应说明未初始化"
+printf -- '- 主干分支：main\n' > "$T/proj/AGENTS.md"
+# 超时：子进程登记一个带 run_id 的临时目录和一个不带的，前者被清理、后者只报告；子进程再起的孙进程也被终止
+mkfake claude "d=\$VIKTOR_RESOURCES; mkdir -p $T/res-\$VIKTOR_RUN_ID $T/res-other; echo dir:$T/res-\$VIKTOR_RUN_ID >> \$d; echo dir:$T/res-other >> \$d; (sleep 61.7; true) & echo pid:\$! >> \$d; sleep 61.7"
+set +e; VIKTOR_SPAWN_TIMEOUT=2 run check "$D" >/dev/null 2>"$T/err"; rc=$?; set -e
+[[ $rc -eq 2 ]] || fail "超时应返回 2，实际 $rc"
+ls -d "$T"/res-* 2>/dev/null | grep -v res-other | grep -q . && fail "带 run_id 的临时目录未被清理" || true
+[[ -d "$T/res-other" ]] && grep -q "未处理" "$T/err" || fail "不带 run_id 的资源应保留并报告"
+sleep 1; pgrep -f "^sleep 61\.7$" >/dev/null && fail "超时后孙进程仍在运行" || true
+rm -rf "$T/res-other"
+
 # 7. VIKTOR_AGENT 强制选择；后台模式写 .done
 mkfake claude "writeres review pass"
 mkfake codex "exit 9"

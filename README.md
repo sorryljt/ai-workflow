@@ -49,7 +49,7 @@ review / check 通过 `scripts/viktor-spawn.sh` 用 `claude -p` 或 `codex exec`
 
 验证范围：Claude Code 端的各档位、续接、blocked / manual、交付报告都做过真实模型验证；**Codex 端只验证了基本流程**（S 档派单、JVM 项目的沙箱参数、子进程不提权）。
 
-Codex 的 workspace-write 沙箱（含 network_access=true）会挡住 colima 的 Docker socket，Testcontainers 集成测试在 Codex 子进程里无法执行；涉及真实库证据的关键 AC 在 Codex 端会判 blocked，需要在 Claude Code 端验收。
+Codex / colima 的完整集成验收仍未通过：2026-09-19 在 workspace-write 下加入 colima 目录后 `docker ps` 成功，显式传入 `DOCKER_HOST` 后 Testcontainers 能连接 Docker，但 Ryuk 挂载 socket 失败。两组试验均不足以作为可行配置写入 init；涉及真实库证据的关键 AC 仍需处理环境后验收，详情见 [试验记录](docs/2026-09-19--next-backlog.md)。
 
 实测（Vite + React + Vitest）：M 档一个需求 40 分钟左右，S 档 8 分钟；review 一轮 2～5 分钟，check 2～4 分钟。
 
@@ -57,7 +57,7 @@ Codex 的 workspace-write 沙箱（含 network_access=true）会挡住 colima �
 
 ```bash
 git submodule add https://github.com/sorryljt/fe-ai-workflow.git .workflow/fe-ai-workflow
-cd .workflow/fe-ai-workflow && git checkout v1.1.1 && cd ../..
+cd .workflow/fe-ai-workflow && git checkout v1.1.2 && cd ../..
 .workflow/fe-ai-workflow/scripts/install.sh .workflow/fe-ai-workflow .
 git add -A && git commit -m "chore: add fe-ai-workflow"
 ```

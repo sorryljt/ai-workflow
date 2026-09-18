@@ -5,6 +5,19 @@
 
 ---
 
+## [1.1.2] - 2026-09-19
+
+### Fixed
+
+- P15：Claude 派单前读取 `~/.claude.json`，按当前目录实际绝对路径检查信任；项目 / 字段缺失或值非 `true` 时退出 2 并提示交互式信任。文件缺失或 node / python3 均不可用时跳过主动检测，保留日志关键字兜底；新增隔离 HOME 的派单测试。
+- P20：plan / code 预检逐键给出 typecheck / lint / test / verify / e2e / dev 的推导来源，能推导出的键一条都不能省，推导不出的键省略且注明；dev 仅记录启动入口，预检不启动服务。
+- P21：重复 init 仅对“项目信息”中的探测字段提差异；约定和禁区一律不提差异、不修改，并增加结构校验断言。README 与入口片段同步规则。
+
+### 验证与已知限制
+
+- Codex / colima：实测 writable_roots 及叠加 DOCKER_HOST 两组配置，子进程 `docker ps` 均通过、单元测试均 27 个通过；完整 verify 分别卡在 Docker 发现和 Ryuk socket 挂载。已记录参数及报错，已知问题保留，未向 README / init 推荐未验证通过的配置。
+- 发布检查：validate.sh、spawn.test.sh、install.test.sh、knowledge.test.sh。
+
 ## [1.1.1] - 2026-09-19
 
 ### Fixed
@@ -60,9 +73,6 @@
 
 ### 已知问题
 
-- 未信任工作区的检测依赖 Claude Code 打印的 "has not been trusted" 警告，这条警告只在 `.claude/settings.json` 里有放行规则时出现。项目还没有任何放行规则时，未信任与未初始化表现相同，只报通用的 error，卡片引导运行 `/viktor-init`；init 之后若仍未信任，下一次派单就能识别出来。（P15）
-- 未初始化项目的预检偶尔漏列 `dev`（README 里有启动命令时也可能漏），不影响不需要运行中服务的 AC。（P20）
-- `/viktor-init` 重复执行时，可能对"约定 / 禁区"也提出差异（例如把 `.claude/` 从禁区移除）；只在用户确认后才改，但确认前请留意这类改动。（P21）
 - **Codex 端只验证了基本流程**：S 档派单、JVM 项目的沙箱参数（review / check 能跑 Maven 与 Testcontainers）、子进程不提权。M / L 档、续接、blocked / manual 路径、交付报告只在 Claude Code 端做过真实模型验证。
 - Codex / colima 完整验收仍未通过：原回归遇到 socket 访问问题；2026-09-19 在 workspace-write（含 network_access=true）下加入 colima 目录后 `docker ps` 成功，但 Testcontainers 未发现 socket；再加 `DOCKER_HOST` 后连接成功，Ryuk 挂载 socket 报 `operation not supported`。涉及真实库证据的关键 AC 仍需处理环境后验收，尝试参数与报错见 [下一版待办](docs/2026-09-19--next-backlog.md)。
 

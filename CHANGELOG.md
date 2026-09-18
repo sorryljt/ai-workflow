@@ -5,12 +5,14 @@
 
 ---
 
-## [Unreleased]
+## [1.1.0] - 2026-09-18
 
-### 升级说明（1.0.x → 1.1.0）
+### 从 1.0.x 升级
 
-- **升级后必须重跑一次 `/viktor-init`（重复执行模式），回复按探测结果更新**：1.1.0 的 review / check 子进程要执行 `knowledge.sh`、按需启动 `dev`，运行前提涉及 Docker 时还要 `docker ps/rm/run/stop`，老项目 init 时没有放行这些命令；而子进程现在只执行给定命令、被拒就报 error，不再绕过，所以不重跑 init，第一次 flow 就会停在 review 需要处理卡。`upgrade.sh` 检测到 `.claude/settings.json` 缺少 knowledge.sh 的放行时会打印提示。（F14）
-- 放行规则只在已信任的工作区生效：升级或接入后在项目目录交互式打开一次 Claude Code 并选择信任。
+1. 在项目根目录运行 `.workflow/fe-ai-workflow/scripts/upgrade.sh v1.1.0`。
+2. **跑完后再运行一次同样的命令，或者直接重跑 `/viktor-init`（重复执行模式），回复"按探测结果更新"。** 第一次运行的是 1.0.x 里的旧版 upgrade.sh，它不会检测放行规则；部分 1.0.x 版本在 bash 3.2 下最后一行还会报 `unbound variable` 并以非零退出，这时 submodule 和安装产物其实已经更新好了。第二次运行的是 1.1.0 的脚本，它发现 `.claude/settings.json` 缺少 `knowledge.sh` 放行时会提示重跑 init。
+3. 为什么必须重跑 init：1.1.0 的 review / check 子进程要执行 `knowledge.sh`、按需启动 `dev`，运行前提涉及 Docker 时还要 `docker ps/rm/run/stop`，老项目 init 时没有放行这些命令；子进程现在只执行给定命令，被拒就报 error、不再绕过，所以不重跑 init，第一次 flow 就会停在 review 需要处理卡。JVM 项目重跑 init 时还会写入 Codex 子进程参数（见 F16）。（F14）
+4. 放行规则只在已信任的工作区生效：升级或接入后在项目目录交互式打开一次 Claude Code 并选择信任。
 
 ### Added（后端仓库支持与验收证据）
 
@@ -45,12 +47,17 @@
 - upgrade.sh 检测到缺少 `knowledge.sh` 放行时提示重跑 `/viktor-init`；见本节开头的升级说明。（F14）
 - 需要处理卡：卡片之外不输出任何文字（包括"备注"，未初始化提示除外）；review error 卡标题写当前 `review_round`（不加 1），首段固定为"检查命令无法执行："；所有节点要求中文回复。（F15）
 - Codex 子进程参数：AGENTS.md 的 `- 子进程参数：codex <参数>` 支持完整参数串（只允许字母数字和 `_ . = : / , @ + -`，没写 `--sandbox` 时补默认沙箱），取代 F1 里只接受 `--sandbox <值>` 的限制；JVM 项目由 init 写入 `--sandbox workspace-write -c sandbox_workspace_write.network_access=true`（会放开子进程外网访问）。`danger-full-access` 与所有 `--dangerously-*` 参数无论来自环境变量还是这一行都拒绝派单。（F16）
+- upgrade.sh 全部逻辑放进一个函数、最后一行调用：执行中脚本文件被原地覆盖也不会读到新内容；`git fetch` 失败时直接退出，不再跳过 checkout 去安装旧版本。（P22 的防御项；首次从 1.0.x 升级的问题见上面的升级说明）
+- check 的 `error` 只用于检查命令本身无法执行（不存在、被权限拒绝、崩溃）；命令跑通但证据不足以证明关键 AC 时一律 `blocked`，在 `pending` 写明缺什么证据。（P23）
 
 ### 已知问题
 
 - 未信任工作区的检测依赖 Claude Code 打印的 "has not been trusted" 警告，这条警告只在 `.claude/settings.json` 里有放行规则时出现。项目还没有任何放行规则时，未信任与未初始化表现相同，只报通用的 error，卡片引导运行 `/viktor-init`；init 之后若仍未信任，下一次派单就能识别出来。（P15）
 - 未初始化项目的预检偶尔漏列 `dev`（README 里有启动命令时也可能漏），不影响不需要运行中服务的 AC。（P20）
 - `/viktor-init` 重复执行时，可能对"约定 / 禁区"也提出差异（例如把 `.claude/` 从禁区移除）；只在用户确认后才改，但确认前请留意这类改动。（P21）
+- **Codex 端只验证了基本流程**：S 档派单、JVM 项目的沙箱参数（review / check 能跑 Maven 与 Testcontainers）、子进程不提权。M / L 档、续接、blocked / manual 路径、交付报告只在 Claude Code 端做过真实模型验证。
+- Codex 主会话做 S 档时可能只改生产代码、不补回归测试，review 也可能放行；check 会因证据不足拦下，不会误放行。（P24）
+- Codex 主会话输出的需要处理卡常常不按模板，卡片外还会附说明文字；Claude Code 端已符合模板。（P25）
 
 ## [1.0.1] - 2026-09-18
 

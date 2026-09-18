@@ -50,4 +50,6 @@ P15 未信任检测依赖 settings.json 有规则；P20 预检偶尔漏列 dev�
 | R3-9 todolist F5（`f5-rerun-3`） | F13、F14 | upgrade 打印重跑 init 提示；init 后 review 第一次调用 knowledge.sh 不被拒 |
 | 自测 | 全部 | 四个测试脚本全绿 |
 
+复测结果见 `docs/2026-09-18--regression-0564e95.md`"复测（HEAD）"。发版前补做三项：① upgrade.sh 全部逻辑放进函数、最后一行调用（P22 的防御项；P22 的真实原因是首次升级执行的是旧版脚本，只能靠升级说明解决）；② check 的 `error` 只用于命令本身无法执行，证据不足一律 `blocked`（P23）；③ CHANGELOG 定版 1.1.0 并写"从 1.0.x 升级"说明，已知问题加 P24、P25 与 Codex 验证范围，README 接入 tag 改为 v1.1.0。
+
 通过后：CHANGELOG 定版 1.1.0、README 接入命令的 tag 改为 v1.1.0、打 tag、push（用户执行）。

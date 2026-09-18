@@ -47,18 +47,20 @@ review / check 通过 `scripts/viktor-spawn.sh` 用 `claude -p` 或 `codex exec`
 
 子进程不得提权：spawn 拒绝 `--dangerously-skip-permissions`、`bypassPermissions`、`danger-full-access` 等参数（退出码 2），主会话遇到权限问题只输出需要处理卡、不改参数重跑。Codex 下 JVM 项目（Maven / Gradle）在默认 `workspace-write` 沙箱里跑不起测试（Mockito 等需要 JVM self-attach，被沙箱的网络限制拦下），需要 `--sandbox workspace-write -c sandbox_workspace_write.network_access=true`：viktor-init 探测到 Maven / Gradle 时会在 AGENTS.md 项目信息节写入 `- 子进程参数：codex --sandbox workspace-write -c sandbox_workspace_write.network_access=true`，并在节点卡上注明。**这会放开 review / check 子进程的外网访问**，不接受的话删掉这一行（Codex 下 JVM 项目的独立验收会报 error）。`read-only` 连报告都写不了；`danger-full-access` 和 `--dangerously-*` 无论写在环境变量还是这一行都会被拒绝。
 
+验证范围：Claude Code 端的各档位、续接、blocked / manual、交付报告都做过真实模型验证；**Codex 端只验证了基本流程**（S 档派单、JVM 项目的沙箱参数、子进程不提权），已知 Codex 主会话可能漏补回归测试、需要处理卡不按模板（见 CHANGELOG 已知问题）。
+
 实测（Vite + React + Vitest）：M 档一个需求 40 分钟左右，S 档 8 分钟；review 一轮 2～5 分钟，check 2～4 分钟。
 
 ## 接入
 
 ```bash
 git submodule add https://github.com/sorryljt/fe-ai-workflow.git .workflow/fe-ai-workflow
-cd .workflow/fe-ai-workflow && git checkout v1.0.1 && cd ../..
+cd .workflow/fe-ai-workflow && git checkout v1.1.0 && cd ../..
 .workflow/fe-ai-workflow/scripts/install.sh .workflow/fe-ai-workflow .
 git add -A && git commit -m "chore: add fe-ai-workflow"
 ```
 
-然后在项目目录**交互式**打开一次 Claude Code 并选择信任工作区（未被信任时，`claude -p` 子进程会忽略 `.claude/settings.json` 的放行规则，review / check 第一次就会报 error；上级目录的信任不传递到独立 git 仓库），再运行 `/viktor-init`。升级：`.workflow/fe-ai-workflow/scripts/upgrade.sh <版本 tag>`；从 1.0.x 升到 1.1.0 后要重跑一次 `/viktor-init`（重复执行模式）补齐放行规则，upgrade.sh 检测到缺少 knowledge.sh 的放行时也会提示。
+然后在项目目录**交互式**打开一次 Claude Code 并选择信任工作区（未被信任时，`claude -p` 子进程会忽略 `.claude/settings.json` 的放行规则，review / check 第一次就会报 error；上级目录的信任不传递到独立 git 仓库），再运行 `/viktor-init`。升级：`.workflow/fe-ai-workflow/scripts/upgrade.sh <版本 tag>`。从 1.0.x 升到 1.1.0 时，第一次运行的是旧版脚本，不会检测放行规则；跑完后再运行一次同样的命令，或直接重跑 `/viktor-init`（重复执行模式）补齐放行规则，详见 CHANGELOG 的"从 1.0.x 升级"。
 
 安装脚本写入 `.claude/skills/`、`.agents/skills/`、`.claude/hooks/viktor-gate.sh`、`.claude/settings.json`（合并 Stop hook，保留已有配置）、`AGENTS.md` 标记段、`CLAUDE.md` 一行 `@AGENTS.md`。Cursor 会同时扫描 `.agents/skills` 和 `.claude/skills`，如出现重复技能可删掉后者。
 

@@ -22,6 +22,7 @@
 - Agent 能直接读代码，所以不维护组件清单、接口清单；`docs/knowledge/` 只放代码里读不出来的知识（decisions / pitfalls / glossary，一条一个文件）。取知识只用 `bash .workflow/fe-ai-workflow/scripts/knowledge.sh lookup <路径或关键词>`，不要整目录读。
 - M/L 档：plan 经用户确认之前，不写实现代码。
 - review 验收覆盖是硬规则：源码改动没有新增或修改测试直接 BLOCKING（S 档也须回归测试）；仅 plan.md 对相应 AC 明确写“替代验证”并说明理由才可免测。
+- Codex + JVM + Docker 的 init 同步写入已探测的 Docker endpoint、Ryuk 禁用环境与沙箱参数；记录验证结果和禁用 Ryuk 的回收前提。
 - review 和 check 在独立进程中执行（`scripts/viktor-spawn.sh`），避免自己审自己。
 - 所有“已完成”“已通过”的说法，都要有本轮真实运行命令的输出作为依据。
 - init 重复执行只对“项目信息”里探测得到的技术栈、构建工具、主干分支、命令验证、viktor-checks 块、运行前提、子进程参数提差异；约定和禁区是用户内容，一律不提差异、不修改。

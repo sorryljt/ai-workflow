@@ -55,7 +55,9 @@ description: 首次接入 viktor 工作流时初始化项目：探测技术栈�
    - 所有命令都以 AGENTS.md 所在目录为工作目录（hook、code、子进程一致）；子模块写进命令本身（`mvn -pl server test` 或 `cd server && npm test`），不另设执行目录。
    - `### 运行前提` 节紧跟在块后面：外部环境与就绪条件；spawn 会把块和这一节一起交给子进程。
    - 标了"未验证"的命令照写，viktor-check 首次执行时以当轮结果判定。
-   - 探测到 Maven / Gradle（JVM 项目）时，在项目信息节写一行 `- 子进程参数：codex --sandbox workspace-write -c sandbox_workspace_write.network_access=true`：Codex 默认沙箱（`workspace-write`）不放网络，Mockito 等的 JVM self-attach 会失败，测试跑不起来。这一行会放开 Codex 下 review / check 子进程的外网访问，节点卡上用"子进程"一行注明（见节点卡）。其他项目不写这一行。spawn 只从这一行读取 Codex 子进程参数，只允许字母数字和 `_ . = : / , @ + -`；`danger-full-access`、`--dangerously-*` 会被拒绝，不要写。
+   - 探测到 Maven / Gradle（JVM 项目）时，在项目信息节写一行 `- 子进程参数：codex --sandbox workspace-write -c sandbox_workspace_write.network_access=true`：Codex 默认沙箱（`workspace-write`）不放网络，Mockito 等的 JVM self-attach 会失败，测试跑不起来。这一行会放开 Codex 下 review / check 子进程的外网访问，节点卡上用"子进程"一行注明（见节点卡）。其他项目不写这一行。spawn 只从这一行读取 Codex 子进程参数，只允许字母数字、空格、单双引号和 `_ . = : / , @ + -`（引号用于保留 TOML 字符串，禁止 shell 展开或运算符）；`danger-full-access`、`--dangerously-*` 会被拒绝，不要写。
+   - **Codex + JVM + Docker**：在上述“子进程参数”同一行一并写入 Docker 环境。先探测实际 Docker endpoint（例如 `docker context inspect`），必须用已确认的 socket 绝对路径，不原样复制示例用户名，也不在参数中留下 `$HOME` / `~`。colima 时增加 `--add-dir <socket 所在目录绝对路径>`；再加 `-c 'shell_environment_policy.set.DOCKER_HOST="unix://<socket 绝对路径>"' -c 'shell_environment_policy.set.TESTCONTAINERS_RYUK_DISABLED="true"'`，保留 `--sandbox workspace-write -c sandbox_workspace_write.network_access=true`。环境变量通过 Codex 的 `shell_environment_policy.set` 注入，值必须是字符串，保留内层双引号与外层单引号。目录有空格时也用分组引号；路径含 spawn 不支持的字符时注明未验证，不伪造路径。
+   - 该组合已在 colima 上通过完整 verify；`TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1` 叠加后也通过，但不是本机必要条件，不默认写入。其他 Docker endpoint 先按项目实际环境验证，不把 colima 路径套用到其他运行时。运行前提注明禁用 Ryuk：正常结束由测试关闭容器，spawn 超时有本轮容器清理兜底，其他异常退出检查本轮残留；节点卡“子进程”行同时注明“Docker / Ryuk 禁用”。
 6. **放行检查命令**：review / check 在独立进程（`claude -p` / `codex exec`）中运行，不继承当前会话的授权。按下面的固定清单写进 `.claude/settings.json` 的 `permissions.allow`，不增不减：
    - `viktor-checks` 里除 `dev` 外的每条命令，原样一条，形如 `Bash(npm test)`、`Bash(./mvnw -q verify)`；
    - 该构建工具 / 测试框架的通配一条，形如 `Bash(./mvnw:*)`、`Bash(npx vitest run:*)`；

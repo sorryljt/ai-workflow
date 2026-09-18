@@ -320,6 +320,31 @@ set +e; run review "$D" --agent codex >/dev/null 2>"$T/err"; rc=$?; set -e
 [[ $rc -eq 2 && ! -f "$T/args.codex" && ! -f "$T/pwned" ]] || fail "含 shell 语法的子进程参数应拒绝且不执行（rc=${rc}）"
 cp "$T/agents.bak" "$T/proj/AGENTS.md"
 
+# 8c. Docker 子进程配置：保留 TOML 字符串引号；不允许引号夹带 shell 展开。
+cat >> "$T/proj/AGENTS.md" <<'ARGS'
+- 子进程参数：codex --sandbox workspace-write -c sandbox_workspace_write.network_access=true --add-dir /tmp/colima -c 'shell_environment_policy.set.DOCKER_HOST="unix:///tmp/colima/docker.sock"' -c 'shell_environment_policy.set.TESTCONTAINERS_RYUK_DISABLED="true"'
+ARGS
+run review "$D" --agent codex >/dev/null || fail "Docker 配置应可派单"
+grep -qx 'shell_environment_policy.set.DOCKER_HOST="unix:///tmp/colima/docker.sock"' "$T/args.codex" || fail "DOCKER_HOST 的 TOML 字符串引号必须保留"
+grep -qx 'shell_environment_policy.set.TESTCONTAINERS_RYUK_DISABLED="true"' "$T/args.codex" || fail "Ryuk 环境变量应以 TOML 字符串传入"
+grep -qx '/tmp/colima' "$T/args.codex" || fail "colima 目录应传入"
+cp "$T/agents.bak" "$T/proj/AGENTS.md"
+printf -- "- 子进程参数：codex -c 'unterminated\n" >> "$T/proj/AGENTS.md"
+rm -f "$T/args.codex"
+set +e; run review "$D" --agent codex >/dev/null 2>"$T/err"; rc=$?; set -e
+[[ $rc -eq 2 && ! -f "$T/args.codex" ]] || fail "未闭合引号必须拒绝派单"
+cp "$T/agents.bak" "$T/proj/AGENTS.md"
+printf '%s\n' '- 子进程参数：codex -c "$(touch should-not-exist)"' >> "$T/proj/AGENTS.md"
+set +e; run review "$D" --agent codex >/dev/null 2>"$T/err"; rc=$?; set -e
+[[ $rc -eq 2 && ! -f "$T/args.codex" && ! -e should-not-exist ]] || fail "引号内的 shell 展开同样应拒绝"
+cp "$T/agents.bak" "$T/proj/AGENTS.md"
+
+cp "$T/agents.bak" "$T/proj/AGENTS.md"
+printf '%s\n' "- 子进程参数：codex --sandbox dan'ger-full-access'" >> "$T/proj/AGENTS.md"
+set +e; run review "$D" --agent codex >/dev/null 2>"$T/err"; rc=$?; set -e
+[[ $rc -eq 2 && ! -f "$T/args.codex" ]] && grep -q "拒绝派单" "$T/err" || fail "分组引号不得绕过提权拦截"
+cp "$T/agents.bak" "$T/proj/AGENTS.md"
+
 # 9. 提示词里的 knowledge.sh 用相对项目根目录的路径（和 init 写的放行规则一致），不出现绝对路径
 mkdir -p "$T/proj/.workflow"; ln -s "$ROOT" "$T/proj/.workflow/fe-ai-workflow"
 mkfake claude "writeres review pass"

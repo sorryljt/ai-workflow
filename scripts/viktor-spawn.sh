@@ -201,12 +201,14 @@ PYTRUST
   fi
 fi
 # 子进程参数：环境变量 > AGENTS.md 项目信息节的 `- 子进程参数：codex <参数>`（仅 codex）> 默认
-# 这一行来自仓库文件，会经 eval 切分：只允许字母数字和 _ . = : / , @ + - 与空格（不含引号、$、反引号、通配符），按空白切分；没写 --sandbox / -s 时补默认沙箱
+# 这一行来自仓库文件：只允许字母数字、_ . = : / , @ + -、空格和单双引号；
+# 引号用于保留 -c 的 TOML 字符串，仍禁止 $、反引号、反斜线、通配符及 shell 运算符。
 PROJ_CODEX_ARGS=""
 if [[ -f AGENTS.md ]]; then
   PROJ_CODEX_ARGS="$(sed -n 's/^- 子进程参数：[[:space:]]*codex[[:space:]][[:space:]]*//p' AGENTS.md | head -1 | tr -d '\r' | sed 's/[[:space:]]*$//')"
-  if [[ -n "$PROJ_CODEX_ARGS" && ! "$PROJ_CODEX_ARGS" =~ ^[A-Za-z0-9_.=:/,@+\ -]+$ ]]; then
-    echo "AGENTS.md 的“子进程参数”只能包含字母、数字、空格和 _ . = : / , @ + -（不支持引号和 shell 语法），实际为：${PROJ_CODEX_ARGS}" >&2; exit 2
+  PROJ_CODEX_ALLOWED="^[A-Za-z0-9_.=:/,@+ '\"-]+$"
+  if [[ -n "$PROJ_CODEX_ARGS" && ! "$PROJ_CODEX_ARGS" =~ $PROJ_CODEX_ALLOWED ]]; then
+    echo "AGENTS.md 的“子进程参数”只能包含字母、数字、空格、单双引号和 _ . = : / , @ + -（不支持 shell 运算符或展开），实际为：${PROJ_CODEX_ARGS}" >&2; exit 2
   fi
   if [[ -n "$PROJ_CODEX_ARGS" && ! " $PROJ_CODEX_ARGS" =~ [[:space:]](--sandbox|-s)([[:space:]=]|$) ]]; then PROJ_CODEX_ARGS="--sandbox workspace-write $PROJ_CODEX_ARGS"; fi
 fi
@@ -228,7 +230,13 @@ case "$AGENT" in
   claude) # 日志保留完整事件流（含被拒的命令），便于排查；verify() 仍只读 .md 报告
           [[ "$ARGS" == *--output-format* ]] || ARGS="$ARGS --output-format stream-json --verbose"
           eval "EXTRA=(${ARGS})"; CMD=(claude -p "$PROMPT" "${EXTRA[@]}");;
-  codex)  eval "EXTRA=(${ARGS})"; CMD=(codex exec "${EXTRA[@]}" "$PROMPT");;
+  codex)  eval "EXTRA=(${ARGS})" || { echo "Codex 子进程参数引号不匹配或语法错误" >&2; exit 2; }; CMD=(codex exec "${EXTRA[@]}" "$PROMPT");;
+esac
+
+# 去掉分组引号后再次检查，防止 dan'ger-full-access' 等拆词绕过原始参数检查。
+case "${EXTRA[*]}" in
+  *danger-full-access*|*--dangerously-*|*dangerously-skip-permissions*|*bypassPermissions*)
+    echo "拒绝派单：解析后的子进程参数含提权参数" >&2; exit 2;;
 esac
 
 START=$(date +%s)

@@ -49,7 +49,13 @@ review / check 通过 `scripts/viktor-spawn.sh` 用 `claude -p` 或 `codex exec`
 
 验证范围：Claude Code 端的各档位、续接、blocked / manual、交付报告都做过真实模型验证；**Codex 端只验证了基本流程**（S 档派单、JVM 项目的沙箱参数、子进程不提权）。
 
-Codex / colima 的完整集成验收仍未通过：2026-09-19 在 workspace-write 下加入 colima 目录后 `docker ps` 成功，显式传入 `DOCKER_HOST` 后 Testcontainers 能连接 Docker，但 Ryuk 挂载 socket 失败。两组试验均不足以作为可行配置写入 init；涉及真实库证据的关键 AC 仍需处理环境后验收，详情见 [试验记录](docs/2026-09-19--next-backlog.md)。
+Codex + JVM + Docker（本机 colima）已验证：保留 `workspace-write`、`network_access=true` 和 colima 目录写权限，设置 `DOCKER_HOST=unix://<socket 绝对路径>`、`TESTCONTAINERS_RYUK_DISABLED=true` 后，完整 verify 的 37 个测试通过。另加 `TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1` 也通过，但本机不需要这个变量。init 会在“子进程参数”中一并写入这些配置，例如：
+
+```text
+- 子进程参数：codex --sandbox workspace-write -c sandbox_workspace_write.network_access=true --add-dir /Users/dawson/.colima/default -c 'shell_environment_policy.set.DOCKER_HOST="unix:///Users/dawson/.colima/default/docker.sock"' -c 'shell_environment_policy.set.TESTCONTAINERS_RYUK_DISABLED="true"'
+```
+
+将示例路径换成实际探测到的绝对路径。`--add-dir` 用于添加 colima 可写目录（试验中使用等效的 `sandbox_workspace_write.writable_roots`）；[Codex 的 shell_environment_policy.set](https://developers.openai.com/codex/config-reference) 向执行命令注入环境变量，其值必须为字符串，保留示例中的单双引号，不能把 `"true"` 写成 TOML 布尔值。spawn 支持这些分组引号，仍拒绝 shell 展开、运算符及提权参数。禁用 Ryuk 后不再有 Ryuk 的异常退出回收保障：正常结束由测试关闭容器，spawn 超时保留本轮 Testcontainers 容器清理兜底，其他异常退出需检查本轮残留。两次试验均无残留容器，详见 [试验记录](docs/2026-09-19--next-backlog.md)。
 
 实测（Vite + React + Vitest）：M 档一个需求 40 分钟左右，S 档 8 分钟；review 一轮 2～5 分钟，check 2～4 分钟。
 

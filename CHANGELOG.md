@@ -15,7 +15,8 @@
 
 ### 验证与已知限制
 
-- Codex / colima：实测 writable_roots 及叠加 DOCKER_HOST 两组配置，子进程 `docker ps` 均通过、单元测试均 27 个通过；完整 verify 分别卡在 Docker 发现和 Ryuk socket 挂载。已记录参数及报错，已知问题保留，未向 README / init 推荐未验证通过的配置。
+- Codex / colima：在原 writable_roots + DOCKER_HOST 基础上，禁用 Ryuk、再叠加 HOST_OVERRIDE 两个假设各试一次，完整 verify 均退出 0（27 单元 + 10 集成，零失败 / 错误 / 跳过）。README 和 init 写入最小通过组合：network_access=true、colima 可写目录、DOCKER_HOST、TESTCONTAINERS_RYUK_DISABLED=true；HOST_OVERRIDE 不默认写入。移除对应已知问题，记录禁用 Ryuk 的回收前提。
+- spawn 支持项目“子进程参数”里的分组引号，以保留 Codex 环境配置的 TOML 字符串；不允许 shell 展开或运算符，解析后再次拒绝提权参数，补充参数传递和拒绝绕过测试。
 - 发布检查：validate.sh、spawn.test.sh、install.test.sh、knowledge.test.sh。
 
 ## [1.1.1] - 2026-09-19
@@ -74,7 +75,6 @@
 ### 已知问题
 
 - **Codex 端只验证了基本流程**：S 档派单、JVM 项目的沙箱参数（review / check 能跑 Maven 与 Testcontainers）、子进程不提权。M / L 档、续接、blocked / manual 路径、交付报告只在 Claude Code 端做过真实模型验证。
-- Codex / colima 完整验收仍未通过：原回归遇到 socket 访问问题；2026-09-19 在 workspace-write（含 network_access=true）下加入 colima 目录后 `docker ps` 成功，但 Testcontainers 未发现 socket；再加 `DOCKER_HOST` 后连接成功，Ryuk 挂载 socket 报 `operation not supported`。涉及真实库证据的关键 AC 仍需处理环境后验收，尝试参数与报错见 [下一版待办](docs/2026-09-19--next-backlog.md)。
 
 ## [1.0.1] - 2026-09-18
 

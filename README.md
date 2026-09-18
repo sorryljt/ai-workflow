@@ -116,4 +116,4 @@ scripts/                       # install / upgrade / validate / viktor-spawn / k
 
 审查验收覆盖是硬规则：源码改动没有新增或修改测试直接 BLOCKING，S 档同样需要回归测试；仅 plan.md 对相应 AC 明确写“替代验证”并说明理由才可免测。spawn 会把缺测试提示追加到审查提示词。
 
-Codex 的对话输出纪律与待确认卡、需要处理卡同步注入 AGENTS.md；卡片之外不输出任何文字，模板源仍保留在 skills 中。
+Codex 的对话输出纪律与待确认卡、需要处理卡同步注入 AGENTS.md；节点卡标题仅限 INIT / PLAN / CODE / REVIEW / CHECK / SHIP，每个节点完成时只输出一张，复审通过必须输出 `✔ REVIEW` 卡。中途进度仅允许 `· AC-n ✔ <测试名>` 单行，不得制作进度、准备、收尾卡或自造标题；卡片外仅允许该进度单行及规定的未初始化备注，模板源仍保留在 skills 中。

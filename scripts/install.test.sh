@@ -31,6 +31,7 @@ for source, title in [(plan, '━━ ⏸ PLAN 待确认'), (flow, '━━ ⚠ <�
 discipline = flow.split('## 对话输出纪律（所有节点通用）', 1)[1].strip()
 assert discipline in installed, '对话输出纪律未完整注入'
 assert '卡片之外不输出任何文字' in installed
+assert '- 节点卡标题只允许 INIT / PLAN / CODE / REVIEW / CHECK / SHIP 六种，每个节点完成时只输出一张；中途进度只允许 `· AC-n ✔ <测试名>` 这种单行，不得把进度、准备、收尾等汇报做成卡片，也不得自造标题。review 复审通过时必须输出 `✔ REVIEW` 卡，不能用其他文字代替。' in installed, '节点卡标题白名单、单行进度与复审通过规则未完整注入'
 PYTEST
 
 # ── 2. 幂等 + 保留用户内容 + 合并已有 hooks ──

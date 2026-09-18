@@ -21,7 +21,7 @@ grep -q "未验证" skills/viktor-init/SKILL.md && ok "init 有命令验证协�
 [[ -x scripts/viktor-spawn.sh ]] && ok "viktor-spawn.sh 可执行" || bad "viktor-spawn.sh 不可执行"
 [[ -x scripts/knowledge.sh ]] && ok "knowledge.sh 可执行" || bad "knowledge.sh 不可执行"
 grep -q viktor-gate.sh hooks/settings.snippet.json && ok "settings 片段引用 hook" || bad "settings 片段未引用 hook"
-[[ $(wc -l < templates/AGENTS.snippet.md) -le 45 ]] && ok "入口片段 ≤40 行" || bad "入口片段过长"
+[[ $(wc -l < templates/AGENTS.snippet.md) -le 110 ]] && ok "入口片段（含卡片模板）≤110 行" || bad "入口片段过长"
 res=$(grep -rnE "viktor:[a-z]|superpowers|workflow\.mdc|1% 规则|反理由|活文档|/viktor-(think|cr|doc|contract|context|digest)" skills templates hooks README.md 2>/dev/null | grep -v "从 v0.8.x 升级\|migrate\|upgrade-workflow\|v0 的" || true)
 [[ -z "$res" ]] && ok "skills/templates/hooks/README 无 v0 术语残留" || { bad "v0 术语残留："; echo "$res"; }
 echo "----"; echo "$P 通过 / $F 失败"; [[ $F -eq 0 ]]

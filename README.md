@@ -55,7 +55,7 @@ review / check 通过 `scripts/viktor-spawn.sh` 用 `claude -p` 或 `codex exec`
 
 ```bash
 git submodule add https://github.com/sorryljt/fe-ai-workflow.git .workflow/fe-ai-workflow
-cd .workflow/fe-ai-workflow && git checkout v1.1.0 && cd ../..
+cd .workflow/fe-ai-workflow && git checkout v1.1.1 && cd ../..
 .workflow/fe-ai-workflow/scripts/install.sh .workflow/fe-ai-workflow .
 git add -A && git commit -m "chore: add fe-ai-workflow"
 ```
@@ -115,3 +115,5 @@ scripts/                       # install / upgrade / validate / viktor-spawn / k
 设计文档：`docs/2026-09-15--v1-redesign.md`、`docs/2026-09-16--flow-and-independent-review.md`；审查记录：`docs/2026-09-15--v1-review.md`；验收记录：`docs/2026-09-16--demo-results.md`。
 
 审查验收覆盖是硬规则：源码改动没有新增或修改测试直接 BLOCKING，S 档同样需要回归测试；仅 plan.md 对相应 AC 明确写“替代验证”并说明理由才可免测。spawn 会把缺测试提示追加到审查提示词。
+
+Codex 的对话输出纪律与待确认卡、需要处理卡同步注入 AGENTS.md；卡片之外不输出任何文字，模板源仍保留在 skills 中。

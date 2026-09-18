@@ -18,6 +18,21 @@ grep -q "^@AGENTS.md$" "$T/p1/CLAUDE.md" || fail "CLAUDE.md 未引用 AGENTS.md"
 [[ ! -d "$T/p1/skills" && ! -d "$T/p1/references" ]] || fail "不应向项目根目录拷贝 skills/references"
 [[ -z "$(ls -A "$ROOT" | grep -E '\.tmp$')" ]] || fail "源目录残留临时文件"
 
+# 注入模板必须与技能源文一致，升级安装也保留两张卡。
+python3 - "$ROOT" "$T/p1/AGENTS.md" <<'PYTEST'
+from pathlib import Path
+import sys
+root, installed = Path(sys.argv[1]), Path(sys.argv[2]).read_text()
+flow = (root / 'skills/viktor-flow/SKILL.md').read_text()
+plan = (root / 'skills/viktor-plan/SKILL.md').read_text()
+for source, title in [(plan, '━━ ⏸ PLAN 待确认'), (flow, '━━ ⚠ <节点> 需要处理')]:
+    card = source[source.index(title):].split('```', 1)[0].rstrip()
+    assert card in installed, title + '模板未完整注入'
+discipline = flow.split('## 对话输出纪律（所有节点通用）', 1)[1].strip()
+assert discipline in installed, '对话输出纪律未完整注入'
+assert '卡片之外不输出任何文字' in installed
+PYTEST
+
 # ── 2. 幂等 + 保留用户内容 + 合并已有 hooks ──
 mkdir -p "$T/p2/.claude"; printf 'user header\n' > "$T/p2/AGENTS.md"
 echo '{"permissions":{"allow":["Bash(ls)"]},"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo pre"}]}]}}' > "$T/p2/.claude/settings.json"

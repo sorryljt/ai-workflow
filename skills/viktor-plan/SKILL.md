@@ -20,6 +20,8 @@ description: 把需求变成一份经用户确认的轻量计划（docs/changes/
 
 ## 步骤
 
+0. 项目没有 `viktor-checks` 块时做**不修改项目配置的预检**：从 CI 配置、wrapper、README 推导本次可用的 typecheck / lint / test 命令、执行目录与环境前提，写进 plan.md 的 `## 本轮运行配置` 并注明来源；不写 AGENTS.md、不改 settings.json。待确认卡备注一行"未初始化，建议 /viktor-init"。项目已有块时省略此节。
+
 1. **收集上下文**：读取 AGENTS.md 的项目信息；用 `bash <workflow-dir>/scripts/knowledge.sh lookup <可能涉及的文件路径> <需求关键词>` 取相关知识（不要直接读 `docs/knowledge/` 下的文件）。需要了解代码时直接读代码。
 2. **只问会改变方案的问题**：能从代码或上下文推断的，直接作为假设写进计划。确实需要用户决定的，一次性提出，最多 3 个。
 3. **写 plan.md**：路径 `docs/changes/YYYY-MM-DD--<slug>/plan.md`，slug 用英文 kebab-case（例如 `filter-by-status`）。该需求已有目录时在原文件上更新。
@@ -66,7 +68,7 @@ stage: plan          # plan | code | review | check | ship | done（最近完成
 stage_result: ok     # ok | blocked | error
 review_round: 0
 base_tree:            # code 开始时写入 viktor-spawn.sh snapshot 的输出：本需求开始时的工作区快照，审查只看此后的变化
-verified: {}          # review / check 通过时写入 viktor-spawn.sh fingerprint 的输出，例如 {review: a1b2c3d4e5f6, check: a1b2c3d4e5f6}
+verified: {}          # review / check 通过时写入：{review: <代码指纹>, check: <代码指纹>, inputs: <验收输入摘要>, pending: [AC…]}
 timing: {}            # 各节点耗时，由 flow 追加
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
@@ -99,6 +101,12 @@ updated: YYYY-MM-DD
 
 ## 变更记录
 - YYYY-MM-DD：<实现中调整了什么、为什么>
+
+## 本轮运行配置（仅在项目未初始化、由预检写入时存在；项目配置出现后此节标记"已被项目配置取代"）
+```viktor-checks
+test: …
+```
+- 执行目录 / 环境前提 / 来源：…
 ```
 
 ## 写作要求

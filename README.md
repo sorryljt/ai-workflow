@@ -1,6 +1,6 @@
 # fe-ai-workflow
 
-> 前端团队 AI 辅助开发工作流，基于原生 Agent Skills，兼容 Claude Code、OpenAI Codex、Cursor。
+> AI 辅助开发工作流，基于原生 Agent Skills，兼容 Claude Code、OpenAI Codex、Cursor。前端与后端（Java 等）仓库各自独立使用，框架差异交给模型判断，不维护模板表。
 
 ## 原则
 
@@ -16,7 +16,7 @@
 | 命令 | 作用 |
 |------|------|
 | `/viktor-flow <需求>` | 判档后自动跑完整流程；不带参数则续接自己上次停下的需求 |
-| `/viktor-init` | 探测技术栈和检查命令，写入 AGENTS.md，放行子进程权限，建知识库 |
+| `/viktor-init` | 探测并逐条验证检查命令，写入 AGENTS.md（含运行前提），放行子进程权限，建知识库 |
 | `/viktor-plan` | 需求澄清 + 任务拆分，产出 plan.md；M/L 档唯一需要人确认的节点 |
 | `/viktor-code` | TDD 实现，每一步有真实测试输出 |
 | `/viktor-review` | 独立进程审查 diff，输出问题清单；有 BLOCKING 自动修复复审，最多 2 轮 |
@@ -43,7 +43,7 @@ AI 判档后输出一行声明，觉得不对直接说"按 L 走"。
 
 ### 独立审查与验收
 
-review / check 通过 `scripts/viktor-spawn.sh` 用 `claude -p` 或 `codex exec` 起新进程，同步等待，默认 480 秒超时。审查深度按档位限制，diff 超过 800 行不自动审。子进程不继承会话授权，`viktor-init` 会把检查命令写进 `.claude/settings.json` 的 `permissions.allow`。`claude -p` 内没有浏览器工具，check 用测试作证据，UI 层面标 👀 待人工。
+review / check 通过 `scripts/viktor-spawn.sh` 用 `claude -p` 或 `codex exec` 起新进程，同步等待，默认 480 秒超时。审查深度按档位限制，diff 超过 800 行不自动审。子进程不继承会话授权，`viktor-init` 会把检查命令写进 `.claude/settings.json` 的 `permissions.allow`。check 按每条 AC 选最小充分证据：涉及服务端数据、权限、契约、资金、幂等的 AC 默认关键，证据缺失就 `blocked`（退出码 4，不改代码，处理环境后重验）；非关键项测不到标 👀 待人工。没跑过 `/viktor-init` 的项目，plan 会先做一次不改配置的预检，命令以本轮配置传给子进程。
 
 实测（Vite + React + Vitest）：M 档一个需求 40 分钟左右，S 档 8 分钟；review 一轮 2～5 分钟，check 2～4 分钟。
 

@@ -5,6 +5,7 @@
 #   --checks 主会话解析出的本轮运行配置文件（viktor-checks 块 + 运行前提），显式传给子进程；不传则退回读 AGENTS.md 的块
 #       viktor-spawn.sh snapshot                    输出当前工作区快照的 tree（含未提交与未跟踪文件，不动索引），供 plan.md 的 base_tree 使用
 #       viktor-spawn.sh fingerprint                 输出当前代码指纹（工作区快照 tree，排除 docs/changes 与 docs/knowledge），供 plan.md 的 verified 使用
+#       viktor-spawn.sh inputs-digest <changes-dir> 输出验收输入摘要（plan.md 的验收标准节 + 本轮运行配置 + 项目 viktor-checks 块的哈希），供 verified.inputs 使用
 #   --agent  主会话所在的工具；子进程只用同一个工具，不做跨工具回退
 # 退出码：0 通过（check 含 manual：仅非关键项待人工）；1 有 BLOCKING / 观察到行为失败（修代码）；2 进程失败（超时、非零退出、无产物、run_id 不符、result: error）；
 #         3 无可用 CLI；4 check blocked（关键 AC 证据缺失 / 环境不可用，不改业务代码）；3 无可用 CLI（提示词已打印，可手动开新窗口粘贴）
@@ -38,6 +39,12 @@ snapshot_tree() {  # snapshot_tree [排除目录...]；排除的目录会从临�
   printf '%s\n' "$tree"
 }
 case "$ROLE" in
+  inputs-digest)
+    [[ -f "$DIR/plan.md" ]] || { echo "缺少 $DIR/plan.md" >&2; exit 2; }
+    section(){ awk -v h="$1" '/^## /{p=(index($0,h)==1)} p' "$DIR/plan.md"; }
+    { section "## 验收标准"; section "## 本轮运行配置"
+      [[ -f AGENTS.md ]] && sed -n '/^[[:space:]]*```viktor-checks[[:space:]]*$/,/^[[:space:]]*```[[:space:]]*$/p' AGENTS.md; } | tr -d '\r' | shasum | cut -c1-12
+    exit 0;;
   snapshot)    snapshot_tree ; exit $?;;
   fingerprint) t="$(snapshot_tree docs/changes docs/knowledge)" || exit 1; printf '%s\n' "${t:0:12}"; exit 0;;
 esac

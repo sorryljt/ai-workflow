@@ -5,6 +5,18 @@
 
 ---
 
+## [Unreleased]
+
+### Added（后端仓库支持与验收证据）
+
+- 提示词中立化：review / check 不再假设前端技术栈；review 按 diff 内容附加后端审查项（迁移安全与恢复、鉴权正反例、幂等、外部调用超时与副作用、分页 / N+1），前端仓库触发不到。
+- 关键 AC 与最低证据：服务端数据写入 / 迁移 / 删除、权限与租户隔离、对外契约、资金计费、幂等重试默认关键；plan 里降级要写理由；check 按 AC 选最小充分证据，运行前提不满足不用 mock 顶替。
+- check 结果五态：`pass` / `manual` / `failed` / `blocked` / `error`，混合时按 failed > blocked > error > manual > pass 取一个；`blocked` 对应 spawn 退出码 4，不改业务代码，处理环境后重验。
+- 续接顺序：先对 `verified.review` 的代码指纹，再对 `verified.inputs` 的验收输入摘要（`viktor-spawn.sh inputs-digest`），blocked / error 节点重跑；任何情况不绕过 review。
+- `viktor-init` 验证协议：命令逐条跑过才算"已验证"（test 看执行数 / 跳过数 / 目标模块），验证不了写原因、不换命令；记录运行前提。
+- 未初始化的项目：plan / code 做不修改项目配置的预检，写进 plan.md `## 本轮运行配置`，review / check 派单以 `--checks` 传给子进程；项目出现 `viktor-checks` 块后以项目为准。
+- spawn：子进程在独立进程组中运行，超时整组终止；check 创建的资源以 run_id 命名并登记，结束后只清本轮的。
+
 ## [1.0.1] - 2026-09-18
 
 ### Fixed（独立 review 后）

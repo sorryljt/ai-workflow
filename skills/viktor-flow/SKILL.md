@@ -26,9 +26,10 @@ description: 一个入口跑完整个开发流程（判档 → plan → code →
 2. 没有候选：说明没有可续接的需求，结束。
 3. 一个候选：直接续接。多个：列出（需求名 / 停在哪个节点 / 更新时间）让用户选。
 4. 每个候选可选：**继续**（从 `stage` 的下一个节点开始）/ **归档**（`status: archived`，之后不再列出）/ **忽略**（这次不管）。
-5. 续接时先算当前代码指纹（`bash <workflow-dir>/scripts/viktor-spawn.sh fingerprint`，不含 docs/changes 与 docs/knowledge，所以写报告不会让指纹失效；命令失败则视为指纹已变），与 plan.md 的 `verified` 比较：
-   - 指纹与 `verified.review` / `verified.check` 一致：不重跑，从 `stage` 的下一步继续。
-   - 指纹变了（用户手工改过代码）：已通过的 review / check 作废，从 review 重新开始（复审模式：审查者拿到上一轮快照，审此后的全部变化）。
+5. 续接顺序（任何情况不绕过 review 直接进 check）：
+   1. 算代码指纹（`bash <workflow-dir>/scripts/viktor-spawn.sh fingerprint`；命令失败视为已变）对 `verified.review`：不一致 → 从 review 开始（复审模式，审上一轮快照之后的全部变化）。
+   2. 一致 → 算验收输入摘要（`viktor-spawn.sh inputs-digest <需求目录>`）对 `verified.inputs`：不一致（AC、证据要求或运行配置变了）→ 从 check 开始。
+   3. 都一致 → 按 `stage` 的下一步继续。`stage_result` 为 `blocked` / `error` 的节点即使一致也重跑该节点（环境恢复后直接重验，但仍先经过第 1 步）。
    后续节点都从磁盘重新取输入。
 
 ## 节点顺序与续接位置
@@ -39,10 +40,10 @@ description: 一个入口跑完整个开发流程（判档 → plan → code →
 | plan | 其他（含 status: draft） | 输出待确认卡，等待确认 |
 | code | ok | review |
 | code | blocked | 需要处理（计划偏离/升档），处理后从 code 继续 |
-| review | ok | check（指纹变了则回 review） |
+| review | ok | check（代码指纹变了则回 review） |
 | review | blocked | 需要处理（复审超阈值），用户修完后从 review（复审）继续 |
-| check | ok | ship（指纹变了则回 review） |
-| check | blocked | 需要处理（验收失败），用户修完后从 check 继续 |
+| check | ok | ship（代码指纹变了回 review；输入摘要变了回 check） |
+| check | blocked | 需要处理（行为失败：修完先 review 再 check；证据缺失 / 环境不可用：处理环境后先核对指纹再 check，不改代码） |
 | ship | ok | done |
 
 ## 只在这五处停下

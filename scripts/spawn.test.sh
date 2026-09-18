@@ -160,6 +160,16 @@ ls -d "$T"/res-* 2>/dev/null | grep -v res-other | grep -q . && fail "带 run_id
 sleep 1; pgrep -f "^sleep 61\.7$" >/dev/null && fail "超时后孙进程仍在运行" || true
 rm -rf "$T/res-other"
 
+# 6h. inputs-digest：改验收标准或运行配置摘要变；改正文其他部分不变
+printf -- '---\nstatus: in-progress\ntier: M\n---\n# x\n\n## 方案\nfoo\n\n## 验收标准\n- [ ] AC-1：a\n\n## 假设\n- b\n' > "$D/plan.md"
+d0="$("$SPAWN" inputs-digest "$D")"
+sed -i.bak 's/^foo$/bar/' "$D/plan.md"; rm -f "$D/plan.md.bak"; [[ "$("$SPAWN" inputs-digest "$D")" == "$d0" ]] || fail "改方案正文不应改变输入摘要"
+sed -i.bak 's/AC-1：a/AC-1：a（证据：真实库）/' "$D/plan.md"; rm -f "$D/plan.md.bak"; [[ "$("$SPAWN" inputs-digest "$D")" != "$d0" ]] || fail "改验收标准应改变输入摘要"
+printf -- '---\nstatus: in-progress\n---\n# x\n\n## 验收标准\n- [ ] AC-1：z\n' > "$D/plan.md"; d2="$("$SPAWN" inputs-digest "$D")"
+printf -- '- [ ] AC-2：y\n' >> "$D/plan.md"; [[ "$("$SPAWN" inputs-digest "$D")" != "$d2" ]] || fail "验收标准是末节时追加 AC 应改变摘要"
+d1="$("$SPAWN" inputs-digest "$D")"; printf '\n## 本轮运行配置\n```viktor-checks\ntest: x\n```\n' >> "$D/plan.md"
+[[ "$("$SPAWN" inputs-digest "$D")" != "$d1" ]] || fail "加运行配置应改变输入摘要"
+
 # 7. VIKTOR_AGENT 强制选择；后台模式写 .done
 mkfake claude "writeres review pass"
 mkfake codex "exit 9"

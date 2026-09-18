@@ -31,7 +31,7 @@ Codex 里用 `$viktor-flow`；也可以用自然语言描述意图。
 |------|------|------|
 | S | 无需人拍板的取舍，改动集中 | code → review → check → ship（全程自动） |
 | M | 单个模块，有口径或取舍需要确认 | plan（等你确认）→ code → review → check → ship |
-| L | 改数据模型或跨多个模块 | plan（含任务清单）→ code → review → check → ship |
+| L | 新增或修改数据模型 / 持久化结构（给已有表加可空列、放宽或收紧请求校验边界不算，这两类按 M；只有影响已有数据可读性、需要迁移或改主键 / 唯一约束的才算 L），或跨多个模块 | plan（含任务清单）→ code → review → check → ship |
 
 AI 判档后输出一行声明，觉得不对直接说"按 L 走"。
 

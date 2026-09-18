@@ -37,6 +37,21 @@
 - L 档判据细化：给已有表加可空列、放宽或收紧请求校验边界按 M；影响已有数据可读性、需要迁移或改主键 / 唯一约束才算 L。（F9）
 - spawn 默认给 claude 子进程加 `--output-format stream-json --verbose`，`.review.log` / `.check.log` 保留完整事件流。（F10）
 
+### Fixed（修复后回归，见 docs/2026-09-18--regression-0564e95.md、docs/2026-09-18--regression-fixes.md）
+
+- check 环境探测直接执行命令：不再用 `timeout` 包裹（macOS 没有）、不把报错丢进 `/dev/null`；"命令不存在"不算环境不可用，换一条直接命令再探。修掉了 macOS 上 check 误判 blocked 的问题。（F11）
+- review / check 的检查命令单独执行，不加管道、重定向、`;`、`&&`、`$?`（放行规则只匹配单条命令）；需要明细去读测试报告。（F12）
+- 提示词里的 `knowledge.sh` 改用相对项目根目录的路径（`.workflow/fe-ai-workflow/…`），与 init 写的放行规则一致，子进程第一次调用不再被拒。（F13）
+- upgrade.sh 检测到缺少 `knowledge.sh` 放行时提示重跑 `/viktor-init`；见本节开头的升级说明。（F14）
+- 需要处理卡：卡片之外不输出任何文字（包括"备注"，未初始化提示除外）；review error 卡标题写当前 `review_round`（不加 1），首段固定为"检查命令无法执行："；所有节点要求中文回复。（F15）
+- Codex 子进程参数：AGENTS.md 的 `- 子进程参数：codex <参数>` 支持完整参数串（只允许字母数字和 `_ . = : / , @ + -`，没写 `--sandbox` 时补默认沙箱），取代 F1 里只接受 `--sandbox <值>` 的限制；JVM 项目由 init 写入 `--sandbox workspace-write -c sandbox_workspace_write.network_access=true`（会放开子进程外网访问）。`danger-full-access` 与所有 `--dangerously-*` 参数无论来自环境变量还是这一行都拒绝派单。（F16）
+
+### 已知问题
+
+- 未信任工作区的检测依赖 Claude Code 打印的 "has not been trusted" 警告，这条警告只在 `.claude/settings.json` 里有放行规则时出现。项目还没有任何放行规则时，未信任与未初始化表现相同，只报通用的 error，卡片引导运行 `/viktor-init`；init 之后若仍未信任，下一次派单就能识别出来。（P15）
+- 未初始化项目的预检偶尔漏列 `dev`（README 里有启动命令时也可能漏），不影响不需要运行中服务的 AC。（P20）
+- `/viktor-init` 重复执行时，可能对"约定 / 禁区"也提出差异（例如把 `.claude/` 从禁区移除）；只在用户确认后才改，但确认前请留意这类改动。（P21）
+
 ## [1.0.1] - 2026-09-18
 
 ### Fixed（独立 review 后）

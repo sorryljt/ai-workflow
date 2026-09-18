@@ -108,7 +108,13 @@ has_cmd="$(printf '%s\n' "${CHECKS:-}" | sed -n '/^[[:space:]]*```viktor-checks[
 [[ -n "$has_cmd" ]] || { echo "未找到可用的检查命令：需要 viktor-checks 块里至少一条非空的 typecheck/lint/test/verify/e2e/dev。AGENTS.md 没有就由主会话预检（写入 plan.md 的 '## 本轮运行配置'）后以 --checks 传入，或运行 /viktor-init。" >&2; exit 2; }
 
 RUN_ID="$(date +%Y%m%d%H%M%S)-$$"
-PROMPT="$(sed -e "s#{{RUN_ID}}#$RUN_ID#g" -e "s#{{PREV_TREE}}#$PREV_TREE#g" -e "s#{{CHANGES_DIR}}#$DIR#g" -e "s#{{TIER}}#$TIER#g" -e "s#{{DIFF_BASE}}#$BASE#g" -e "s#{{MAIN_BRANCH}}#$MAIN#g" -e "s#{{WORKFLOW_DIR}}#$WF#g" "$PROMPT_TPL")"
+# 提示词里的工作流目录用相对项目根目录的路径，和 viktor-init 写的放行规则 `Bash(bash .workflow/<…>/scripts/knowledge.sh:*)` 一致；
+# 工作流不在项目目录下时退回 python3 的 relpath，再不行才用绝对路径（此时放行规则匹配不上，只提示）
+WF_REL=""
+case "$WF" in "$PWD"/*) WF_REL="${WF#"$PWD"/}";; esac
+[[ -z "$WF_REL" ]] && WF_REL="$(python3 -c 'import os,sys; print(os.path.relpath(sys.argv[1]))' "$WF" 2>/dev/null)"
+if [[ -z "$WF_REL" ]]; then WF_REL="$WF"; echo "警告：无法算出工作流目录的相对路径，提示词里用绝对路径 ${WF}；knowledge.sh 的放行规则需按这个路径补一条" >&2; fi
+PROMPT="$(sed -e "s#{{RUN_ID}}#$RUN_ID#g" -e "s#{{PREV_TREE}}#$PREV_TREE#g" -e "s#{{CHANGES_DIR}}#$DIR#g" -e "s#{{TIER}}#$TIER#g" -e "s#{{DIFF_BASE}}#$BASE#g" -e "s#{{MAIN_BRANCH}}#$MAIN#g" -e "s#{{WORKFLOW_DIR}}#$WF_REL#g" "$PROMPT_TPL")"
 PROMPT="${PROMPT//\{\{CHECKS\}\}/$CHECKS}"
 printf '%s\n' "$PROMPT" > "$DIR/.$ROLE.prompt.md"
 

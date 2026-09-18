@@ -271,4 +271,12 @@ cp "$T/agents.bak" "$T/proj/AGENTS.md"; printf -- '- 子进程参数：codex --s
 set +e; run review "$D" --agent codex >/dev/null 2>"$T/err"; rc=$?; set -e
 [[ $rc -eq 2 && ! -f "$T/args.codex" ]] && grep -q "拒绝派单" "$T/err" || fail "项目级 danger-full-access 应拒绝派单（rc=${rc}）"
 cp "$T/agents.bak" "$T/proj/AGENTS.md"
+
+# 9. 提示词里的 knowledge.sh 用相对项目根目录的路径（和 init 写的放行规则一致），不出现绝对路径
+mkdir -p "$T/proj/.workflow"; ln -s "$ROOT" "$T/proj/.workflow/fe-ai-workflow"
+mkfake claude "writeres review pass"
+PATH="$T/bin:/usr/bin:/bin" VIKTOR_WORKFLOW_DIR="$T/proj/.workflow/fe-ai-workflow" "$SPAWN" review "$D" --agent claude >/dev/null || fail "工作流在项目目录下时应能派单"
+grep -q 'bash \.workflow/fe-ai-workflow/scripts/knowledge\.sh lookup' "$D/.review.prompt.md" || fail "提示词里的 knowledge.sh 路径应以 .workflow/ 开头"
+grep -qF "$T/proj/.workflow" "$D/.review.prompt.md" && fail "提示词里不应出现工作流的绝对路径" || true
+rm -rf "$T/proj/.workflow"
 echo PASS

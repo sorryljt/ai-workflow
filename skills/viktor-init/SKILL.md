@@ -57,7 +57,7 @@ description: 首次接入 viktor 工作流时初始化项目：探测技术栈�
 6. **放行检查命令**：review / check 在独立进程（`claude -p` / `codex exec`）中运行，不继承当前会话的授权。按下面的固定清单写进 `.claude/settings.json` 的 `permissions.allow`，不增不减：
    - `viktor-checks` 里除 `dev` 外的每条命令，原样一条，形如 `Bash(npm test)`、`Bash(./mvnw -q verify)`；
    - 该构建工具 / 测试框架的通配一条，形如 `Bash(./mvnw:*)`、`Bash(npx vitest run:*)`；
-   - `Bash(bash <workflow-dir>/scripts/knowledge.sh:*)`（review / check 的提示词都要求执行 lookup）；
+   - `Bash(bash <workflow-dir>/scripts/knowledge.sh:*)`，`<workflow-dir>` 写**相对项目根目录的路径**（通常是 `.workflow/fe-ai-workflow`，不写绝对路径；spawn 交给子进程的提示词用的也是这个相对路径）。review / check 的提示词都要求执行 lookup；
    - `dev` 也放行一条（check 只在 AC 明确需要运行中的服务时才后台启动它，并登记 pid）；
    - 运行前提提到 Docker / 容器运行时的：`Bash(docker ps:*)`、`Bash(docker rm:*)`、`Bash(docker run:*)`、`Bash(docker stop:*)`。
    已有的规则保留，不重复添加。`install.sh` / `upgrade.sh` 合并 settings.json 时只替换 viktor-gate 的 hook 条目，`permissions` 原样保留。放行规则只在**已信任的工作区**生效：接入后必须在项目目录交互式打开一次 Claude Code 并选择信任，上级目录的信任不传递到独立 git 仓库；当前会话不是在项目目录交互式启动的，就在节点卡后提醒用户这一步。

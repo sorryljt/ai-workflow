@@ -26,7 +26,7 @@ description: 一个入口跑完整个开发流程（判档 → plan → code →
 2. 没有候选：说明没有可续接的需求，结束。
 3. 一个候选：直接续接。多个：列出（需求名 / 停在哪个节点 / 更新时间）让用户选。
 4. 每个候选可选：**继续**（从 `stage` 的下一个节点开始）/ **归档**（`status: archived`，之后不再列出）/ **忽略**（这次不管）。
-5. 续接时先算当前代码指纹（`bash <workflow-dir>/scripts/viktor-spawn.sh fingerprint`，不含 docs/changes 与 docs/knowledge，所以写报告不会让指纹失效），与 plan.md 的 `verified` 比较：
+5. 续接时先算当前代码指纹（`bash <workflow-dir>/scripts/viktor-spawn.sh fingerprint`，不含 docs/changes 与 docs/knowledge，所以写报告不会让指纹失效；命令失败则视为指纹已变），与 plan.md 的 `verified` 比较：
    - 指纹与 `verified.review` / `verified.check` 一致：不重跑，从 `stage` 的下一步继续。
    - 指纹变了（用户手工改过代码）：已通过的 review / check 作废，从 review 重新开始（复审模式：审查者拿到上一轮快照，审此后的全部变化）。
    后续节点都从磁盘重新取输入。

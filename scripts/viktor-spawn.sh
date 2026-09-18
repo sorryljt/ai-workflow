@@ -17,14 +17,26 @@
 set -uo pipefail
 
 ROLE="${1:-}"; DIR="${2:-}"
-# 工作区快照：临时索引 + write-tree，不动真实索引、不产生 commit
+# 工作区快照：复制真实索引到临时文件（保留跟踪关系与 intent-to-add），再 add -A 更新内容，write-tree。
+# 不动真实索引、不产生 commit。任一步失败返回非零且不输出，调用方不得采信。
 snapshot_tree() {  # snapshot_tree [pathspec...]
-  local idx; idx="$(mktemp)"; rm -f "$idx"
-  ( export GIT_INDEX_FILE="$idx"; git read-tree --empty 2>/dev/null; git add -A -- "$@" 2>/dev/null; git write-tree ); rm -f "$idx"
+  local idx real rc=0 tree
+  idx="$(mktemp)" || return 1
+  real="$(git rev-parse --git-path index 2>/dev/null)"
+  if [[ -f "$real" ]]; then cp "$real" "$idx" || { rm -f "$idx"; return 1; }; else rm -f "$idx"; fi
+  tree="$(
+    export GIT_INDEX_FILE="$idx"
+    [[ -f "$idx" ]] || git read-tree --empty || exit 1
+    git add -A -- "$@" || exit 1
+    git write-tree || exit 1
+  )"; rc=$?
+  rm -f "$idx"
+  [[ $rc -eq 0 && -n "$tree" ]] || { echo "快照失败（git add / write-tree 出错）" >&2; return 1; }
+  printf '%s\n' "$tree"
 }
 case "$ROLE" in
-  snapshot)    snapshot_tree . ; exit 0;;
-  fingerprint) snapshot_tree . ':!docs/changes' ':!docs/knowledge' | cut -c1-12; exit 0;;
+  snapshot)    snapshot_tree . ; exit $?;;
+  fingerprint) t="$(snapshot_tree . ':!docs/changes' ':!docs/knowledge')" || exit 1; printf '%s\n' "${t:0:12}"; exit 0;;
 esac
 shift 2 2>/dev/null || true
 TIER=""; MAIN=""; BG=0; AGENT_ARG=""
@@ -57,7 +69,11 @@ if [[ -f "$DIR/plan.md" ]]; then
   BASE="$(sed -n '1,/^---$/{s/^base_tree:[[:space:]]*//p;}' "$DIR/plan.md" | head -1 | sed 's/[[:space:]]*#.*//' | tr -d '\r')"
   [[ -z "$BASE" ]] && BASE="$(sed -n '1,/^---$/{s/^base_sha:[[:space:]]*//p;}' "$DIR/plan.md" | head -1 | sed 's/[[:space:]]*#.*//' | tr -d '\r')"
 fi
-[[ -n "$BASE" ]] && git cat-file -e "$BASE" 2>/dev/null || BASE="$(git merge-base HEAD "$MAIN" 2>/dev/null || git rev-parse HEAD 2>/dev/null || echo HEAD)"
+if [[ -z "$BASE" ]] || ! git cat-file -e "$BASE" 2>/dev/null; then
+  # 事后发起的审查没有历史快照：工作区有改动就审相对 HEAD 的改动，干净就审分支相对主干的提交；绝不用当前状态补拍起点
+  if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then BASE="$(git rev-parse HEAD 2>/dev/null || echo HEAD)"
+  else BASE="$(git merge-base HEAD "$MAIN" 2>/dev/null || git rev-parse HEAD 2>/dev/null || echo HEAD)"; fi
+fi
 # 上一轮审查时的快照（复审只审此后的变化）
 PREV_TREE="无"; [[ "$ROLE" == review && -f "$DIR/.review.tree" ]] && PREV_TREE="$(cat "$DIR/.review.tree")"
 # 未跟踪文件用 intent-to-add 纳入 diff（不改变提交内容）
@@ -126,5 +142,5 @@ fi
 run_with_timeout; rc=$?
 if [[ $rc -eq 124 ]]; then echo "${ROLE} 超时（${TIMEOUT}s），日志：${LOG}" >&2; exit 2; fi
 verify "$rc"; vrc=$?
-[[ "$ROLE" == review && $vrc -le 1 ]] && snapshot_tree . > "$DIR/.review.tree"
+if [[ "$ROLE" == review && $vrc -le 1 ]]; then t="$(snapshot_tree .)" && printf '%s\n' "$t" > "$DIR/.review.tree" || echo "警告：本轮快照失败，未更新 .review.tree" >&2; fi
 exit $vrc

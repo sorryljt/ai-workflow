@@ -114,6 +114,22 @@ mkfake claude "rid=\$(sed -n 's/^run_id:[[:space:]]*\([^ ]*\).*/\1/p' $D/.review
 run review "$D" >/dev/null || fail "run_id 带行尾注释应能识别"
 git -C "$T/proj" reset -q 2>/dev/null || true
 
+# 6f. 事后审查无 base_tree：工作区脏 → 基线 HEAD；快照保留“已跟踪但被 gitignore”的文件；快照失败返回非零且无输出
+mkdir -p "$T/p6"; cd "$T/p6"; git init -q; git -c user.email=a@b -c user.name=t commit -q --allow-empty -m init; mkdir -p "$D"; printf -- '---\nstatus: in-progress\ntier: S\n---\n' > "$D/plan.md"
+printf 'a\n' > app.ts; git add -A; git -c user.email=a@b -c user.name=t commit -qm base; head=$(git rev-parse HEAD)
+printf 'b\n' > app.ts
+mkfake claude "writeres review pass"
+run review "$D" >/dev/null || fail "事后审查应能运行"
+grep -q "git diff $head" "$D/.review.prompt.md" || fail "无 base_tree 且工作区脏时基线应为 HEAD"
+git checkout -q app.ts; git reset -q
+printf 'fixture\n' > fx.txt; git add fx.txt; git -c user.email=a@b -c user.name=t commit -qm fx; printf 'fx.txt\n' > .gitignore
+f1="$("$SPAWN" fingerprint)"; printf 'changed\n' > fx.txt; f2="$("$SPAWN" fingerprint)"
+[[ "$f1" != "$f2" ]] || fail "已跟踪但被 gitignore 的文件修改后指纹应变化"
+mkdir nested && git -C nested init -q                       # 无提交的嵌套仓库会让 git add 失败
+set +e; out="$("$SPAWN" fingerprint 2>/dev/null)"; rc=$?; set -e
+[[ $rc -ne 0 && -z "$out" ]] || fail "快照失败应返回非零且无输出，实际 rc=$rc out=$out"
+rm -rf nested; cd "$T/proj"
+
 # 7. VIKTOR_AGENT 强制选择；后台模式写 .done
 mkfake claude "writeres review pass"
 mkfake codex "exit 9"

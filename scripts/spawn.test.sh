@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SPAWN="$ROOT/scripts/viktor-spawn.sh"
 fail(){ echo "FAIL: $1" >&2; exit 1; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-mkdir -p "$T/bin" "$T/proj/docs/changes/2026-09-16--x"
+mkdir -p "$T/home" "$T/bin" "$T/proj/docs/changes/2026-09-16--x"
 cd "$T/proj"; git init -q; git -c user.email=a@b -c user.name=t commit -q --allow-empty -m init
 printf -- '- 主干分支：main\n\n```viktor-checks\ntest: npm test -- --run\n```\n' > AGENTS.md
 printf -- '---\nstatus: in-progress\ntier: M\n---\n# x\n' > docs/changes/2026-09-16--x/plan.md
@@ -21,7 +21,7 @@ F
   chmod +x "$T/bin/$1"
 }
 unset CLAUDECODE CLAUDE_PROJECT_DIR; for v in $(env | grep -o "^CODEX_[A-Z_]*"); do unset "$v"; done
-run(){ PATH="$T/bin:/usr/bin:/bin" VIKTOR_WORKFLOW_DIR="$ROOT" "$SPAWN" "$@"; }
+run(){ HOME="$T/home" PATH="$T/bin:/usr/bin:/bin" VIKTOR_WORKFLOW_DIR="$ROOT" "$SPAWN" "$@"; }
 
 # 1. claude 正常写 review.md → 0；提示词中变量已替换；默认参数传入
 mkfake claude "writeres review pass"
@@ -31,6 +31,19 @@ grep -q "{{" "$D/.review.prompt.md" && fail "提示词变量未替换" || true
 grep -q "档位：M" "$D/.review.prompt.md" || fail "档位未从 plan.md 读取"
 grep -q -- "--permission-mode" "$T/args.claude" || fail "claude 默认参数未传入"
 grep -qx "stream-json" "$T/args.claude" && grep -qx -- "--verbose" "$T/args.claude" || fail "claude 子进程默认应输出 stream-json"
+
+# 1b. 主动信任检测：临时 HOME 隔离真实配置；缺文件跳过，缺项目/字段或 false 拒绝。
+for config in '{}' '{"projects":{}}' "{\"projects\":{\"$(pwd -P)\":{}}}" "{\"projects\":{\"$(pwd -P)\":{\"hasTrustDialogAccepted\":false}}}"; do
+  printf '%s\n' "$config" > "$T/home/.claude.json"
+  rm -f "$T/args.claude"
+  set +e; run review "$D" --agent claude >/dev/null 2>"$T/err"; rc=$?; set -e
+  [[ $rc -eq 2 && ! -f "$T/args.claude" ]] || fail "未信任应退出 2 且不派单"
+  grep -qx '工作区未被 Claude Code 信任：请在项目目录交互式启动一次 claude 并选择信任，然后说「继续」' "$T/err" || fail "缺少信任引导"
+done
+printf '{"projects":{"%s":{"hasTrustDialogAccepted":true}}}\n' "$(pwd -P)" > "$T/home/.claude.json"
+run review "$D" --agent claude >/dev/null || fail "已信任应正常派单"
+rm "$T/home/.claude.json"
+run review "$D" --agent claude >/dev/null || fail "配置文件缺失应跳过信任检测"
 
 # 2. blocked → 1
 mkfake claude "writeres review blocked"
@@ -292,7 +305,7 @@ cp "$T/agents.bak" "$T/proj/AGENTS.md"
 # 9. 提示词里的 knowledge.sh 用相对项目根目录的路径（和 init 写的放行规则一致），不出现绝对路径
 mkdir -p "$T/proj/.workflow"; ln -s "$ROOT" "$T/proj/.workflow/fe-ai-workflow"
 mkfake claude "writeres review pass"
-PATH="$T/bin:/usr/bin:/bin" VIKTOR_WORKFLOW_DIR="$T/proj/.workflow/fe-ai-workflow" "$SPAWN" review "$D" --agent claude >/dev/null || fail "工作流在项目目录下时应能派单"
+HOME="$T/home" PATH="$T/bin:/usr/bin:/bin" VIKTOR_WORKFLOW_DIR="$T/proj/.workflow/fe-ai-workflow" "$SPAWN" review "$D" --agent claude >/dev/null || fail "工作流在项目目录下时应能派单"
 grep -q 'bash \.workflow/fe-ai-workflow/scripts/knowledge\.sh lookup' "$D/.review.prompt.md" || fail "提示词里的 knowledge.sh 路径应以 .workflow/ 开头"
 grep -qF "$T/proj/.workflow" "$D/.review.prompt.md" && fail "提示词里不应出现工作流的绝对路径" || true
 rm -rf "$T/proj/.workflow"

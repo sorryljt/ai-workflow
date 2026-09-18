@@ -160,6 +160,28 @@ if ! command -v "$AGENT" >/dev/null 2>&1; then
   echo "指定的工具 ${AGENT}（${WHY}）不在 PATH 中，不回退到其他工具。手动方式：把 $DIR/.$ROLE.prompt.md 作为新窗口的第一条消息发送" >&2
   exit 3
 fi
+# Claude 信任配置不存在或没有 JSON 解析器时跳过；保留日志检测兜底。
+if [[ "$AGENT" == claude && -f "$HOME/.claude.json" ]]; then
+  trust_rc=0
+  if command -v node >/dev/null 2>&1; then
+    node -e 'try { const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); process.exit(c.projects?.[process.argv[2]]?.hasTrustDialogAccepted === true ? 0 : 2); } catch (_) { process.exit(2); }' "$HOME/.claude.json" "$(pwd -P)" || trust_rc=$?
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 - "$HOME/.claude.json" "$(pwd -P)" <<'PYTRUST' || trust_rc=$?
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        config = json.load(f)
+    trusted = config.get("projects", {}).get(sys.argv[2], {}).get("hasTrustDialogAccepted") is True
+except (OSError, ValueError, AttributeError):
+    trusted = False
+sys.exit(0 if trusted else 2)
+PYTRUST
+  fi
+  if [[ $trust_rc -ne 0 ]]; then
+    echo '工作区未被 Claude Code 信任：请在项目目录交互式启动一次 claude 并选择信任，然后说「继续」' >&2
+    exit 2
+  fi
+fi
 # 子进程参数：环境变量 > AGENTS.md 项目信息节的 `- 子进程参数：codex <参数>`（仅 codex）> 默认
 # 这一行来自仓库文件，会经 eval 切分：只允许字母数字和 _ . = : / , @ + - 与空格（不含引号、$、反引号、通配符），按空白切分；没写 --sandbox / -s 时补默认沙箱
 PROJ_CODEX_ARGS=""

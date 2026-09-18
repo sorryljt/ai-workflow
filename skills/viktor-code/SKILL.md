@@ -5,6 +5,8 @@ description: 以测试驱动的方式实现需求或修复 bug，每一步都提
 
 # viktor-code：测试驱动实现
 
+用中文回复（节点卡、需要处理卡和其他说明都用中文）。
+
 ## 输入
 
 - **M/L 档**：`docs/changes/<…>/plan.md`，要求 `status` 为 `confirmed` 或 `in-progress`。选择规则：只有一个 `in-progress` 的计划就用它；否则列出候选让用户选；没有已确认的计划则提示先使用 /viktor-plan。开始时把 `status` 改为 `in-progress`；`base_tree` 为空则写入 `bash <workflow-dir>/scripts/viktor-spawn.sh snapshot` 的输出（当前工作区快照，含未提交的改动；之后的审查只看此后的变化，前一个需求没提交也不会混进来）。

@@ -58,7 +58,7 @@ cd .workflow/fe-ai-workflow && git checkout v1.0.1 && cd ../..
 git add -A && git commit -m "chore: add fe-ai-workflow"
 ```
 
-然后在项目目录**交互式**打开一次 Claude Code 并选择信任工作区（未被信任时，`claude -p` 子进程会忽略 `.claude/settings.json` 的放行规则，review / check 第一次就会报 error；上级目录的信任不传递到独立 git 仓库），再运行 `/viktor-init`。升级：`.workflow/fe-ai-workflow/scripts/upgrade.sh <版本 tag>`。
+然后在项目目录**交互式**打开一次 Claude Code 并选择信任工作区（未被信任时，`claude -p` 子进程会忽略 `.claude/settings.json` 的放行规则，review / check 第一次就会报 error；上级目录的信任不传递到独立 git 仓库），再运行 `/viktor-init`。升级：`.workflow/fe-ai-workflow/scripts/upgrade.sh <版本 tag>`；从 1.0.x 升到 1.1.0 后要重跑一次 `/viktor-init`（重复执行模式）补齐放行规则，upgrade.sh 检测到缺少 knowledge.sh 的放行时也会提示。
 
 安装脚本写入 `.claude/skills/`、`.agents/skills/`、`.claude/hooks/viktor-gate.sh`、`.claude/settings.json`（合并 Stop hook，保留已有配置）、`AGENTS.md` 标记段、`CLAUDE.md` 一行 `@AGENTS.md`。Cursor 会同时扫描 `.agents/skills` 和 `.claude/skills`，如出现重复技能可删掉后者。
 

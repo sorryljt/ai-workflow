@@ -7,6 +7,11 @@
 
 ## [Unreleased]
 
+### 升级说明（1.0.x → 1.1.0）
+
+- **升级后必须重跑一次 `/viktor-init`（重复执行模式），回复按探测结果更新**：1.1.0 的 review / check 子进程要执行 `knowledge.sh`、按需启动 `dev`，运行前提涉及 Docker 时还要 `docker ps/rm/run/stop`，老项目 init 时没有放行这些命令；而子进程现在只执行给定命令、被拒就报 error，不再绕过，所以不重跑 init，第一次 flow 就会停在 review 需要处理卡。`upgrade.sh` 检测到 `.claude/settings.json` 缺少 knowledge.sh 的放行时会打印提示。（F14）
+- 放行规则只在已信任的工作区生效：升级或接入后在项目目录交互式打开一次 Claude Code 并选择信任。
+
 ### Added（后端仓库支持与验收证据）
 
 - 提示词中立化：review / check 不再假设前端技术栈；review 按 diff 内容附加后端审查项（迁移安全与恢复、鉴权正反例、幂等、外部调用超时与副作用、分页 / N+1），前端仓库触发不到。

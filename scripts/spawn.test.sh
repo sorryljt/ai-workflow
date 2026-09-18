@@ -30,6 +30,7 @@ run review "$D" >/dev/null || fail "pass 应返回 0"
 grep -q "{{" "$D/.review.prompt.md" && fail "提示词变量未替换" || true
 grep -q "档位：M" "$D/.review.prompt.md" || fail "档位未从 plan.md 读取"
 grep -q -- "--permission-mode" "$T/args.claude" || fail "claude 默认参数未传入"
+grep -qx "stream-json" "$T/args.claude" && grep -qx -- "--verbose" "$T/args.claude" || fail "claude 子进程默认应输出 stream-json"
 
 # 2. blocked → 1
 mkfake claude "writeres review blocked"
@@ -69,6 +70,9 @@ grep -q "无法执行" "$T/err" || fail "error 时未提示"
 mkfake claude "writeres review pass"
 VIKTOR_CLAUDE_ARGS='--permission-mode acceptEdits --allowedTools "Bash(npm test)"' run review "$D" >/dev/null || fail "带引号参数应能运行"
 grep -qx "Bash(npm test)" "$T/args.claude" || fail "带引号的参数被切分"
+grep -qx "stream-json" "$T/args.claude" || fail "自定义参数时也应追加 stream-json"
+VIKTOR_CLAUDE_ARGS='--output-format text' run review "$D" >/dev/null || fail "自带 --output-format 应能运行"
+[[ "$(grep -cx -- "--output-format" "$T/args.claude")" == 1 ]] && ! grep -qx "stream-json" "$T/args.claude" || fail "自带 --output-format 时不应重复追加"
 
 # 6c. --agent 优先；指定工具不存在时不回退（退出码 3）；环境变量检测
 mkfake claude "writeres review pass"

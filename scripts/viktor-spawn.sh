@@ -13,6 +13,7 @@
 # 环境变量：
 #   VIKTOR_AGENT          claude | codex（优先级：--agent > VIKTOR_AGENT > 环境变量 CLAUDECODE/CLAUDE_PROJECT_DIR/CODEX_* > 命令存在性）
 #   VIKTOR_CLAUDE_ARGS    传给 claude 的额外参数（默认 "--permission-mode acceptEdits"；按 shell 规则解析，含空格的参数请加引号）
+#                         未指定 --output-format 时追加 "--output-format stream-json --verbose"，.<role>.log 保留完整事件流
 #   注意：子进程不继承会话授权，检查命令需由 viktor-init 写入 .claude/settings.json 的 permissions.allow
 #   VIKTOR_CODEX_ARGS     传给 codex exec 的额外参数（默认 "--sandbox workspace-write"；项目需要更宽沙箱时在 AGENTS.md 写 `- 子进程参数：codex --sandbox <值>`）
 #   两者含 --dangerously-skip-permissions / bypassPermissions / danger-full-access / --dangerously-bypass-approvals-and-sandbox 时拒绝派单（退出码 2）
@@ -151,7 +152,9 @@ case "$ARGS" in
 esac
 echo "独立 ${ROLE}：使用 ${AGENT}（${WHY}）"
 case "$AGENT" in
-  claude) eval "EXTRA=(${ARGS})"; CMD=(claude -p "$PROMPT" "${EXTRA[@]}");;
+  claude) # 日志保留完整事件流（含被拒的命令），便于排查；verify() 仍只读 .md 报告
+          [[ "$ARGS" == *--output-format* ]] || ARGS="$ARGS --output-format stream-json --verbose"
+          eval "EXTRA=(${ARGS})"; CMD=(claude -p "$PROMPT" "${EXTRA[@]}");;
   codex)  eval "EXTRA=(${ARGS})"; CMD=(codex exec "${EXTRA[@]}" "$PROMPT");;
 esac
 

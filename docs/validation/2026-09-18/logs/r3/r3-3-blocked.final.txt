@@ -1,0 +1,9 @@
+━━ ⚠ CHECK 需要处理 · M · 1m ━━━━━━━━━━━━━━━━━━━━
+
+关键 AC 证据缺失，未改代码：
+  1. AC-2  需要在真实 Postgres 上跑 OrderApiIT，证明超限请求不返回 201、不落库；Docker 未就绪，`docker ps` 失败，colima socket 不存在
+  2. AC-3  需要在真实 Postgres 上跑 OrderApiIT，验证历史超限订单同键同体重放和同键不同体 422；原因同上
+
+详情  docs/changes/2026-09-18--amount-upper-limit/check.md
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+环境处理好后说「继续」

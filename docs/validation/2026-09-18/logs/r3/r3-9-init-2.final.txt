@@ -1,0 +1,9 @@
+━━ ✔ INIT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+技术栈    Vite 8 + React 19 + TS 6 / Vitest + RTL + jsdom / npm
+检查命令  typecheck ✅ lint ✅ test ✅ verify — e2e — dev 未验证
+放行      7 条
+产物      AGENTS.md 项目信息 · docs/knowledge/ · .claude/settings.json
+下一步    /viktor-flow <需求>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+提醒：review 和 check 在独立进程里跑，新加的放行规则只在已信任的工作区生效。请在本项目目录下交互式打开一次 Claude Code，并选择信任这个目录。

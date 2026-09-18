@@ -1,0 +1,9 @@
+```
+━━ ✔ INIT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+技术栈    Spring Boot 3.3.5 / JUnit 5 + Testcontainers / Maven（./mvnw，多模块 core、app）
+检查命令  typecheck — lint — test ✅ verify ✅ e2e — dev 未验证
+放行      9 条
+子进程    codex 放开网络（JVM 测试需要）
+产物      AGENTS.md 项目信息 · docs/knowledge/ · .claude/settings.json
+下一步    /viktor-flow <需求>
+```

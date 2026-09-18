@@ -1,0 +1,15 @@
+```
+━━ ⚠ REVIEW 需要处理 · 第 1/3 轮 · 2m ━━━━━━━━━━━━━━━━━
+
+独立审查进程跑不了检查命令，所以没给出代码结论。
+原因是这个工作区还没被信任，项目 settings.json
+里放行 ./mvnw 的 allow 规则被忽略了：
+  1. ./mvnw -q test        This command requires approval
+  2. knowledge.sh lookup   This command requires approval
+
+详情  docs/changes/2026-09-18--order-amount-half-up/.review.log
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+在这个目录交互式运行一次 claude 并接受信任对话框，或运行 /viktor-init 补齐权限，好了之后说「继续」
+```
+
+备注：CODE 已完成（`./mvnw test` 8 个通过，新增 3 个）。这一轮没有任何审查结论，也不算入 3 轮上限。`~/.claude.json` 属于你的全局配置，所以我没有去改它。

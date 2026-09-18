@@ -1,0 +1,12 @@
+THREAD 01a0b4d7-ad2b-7820-995e-762e7612ce93
+```text
+━━ ⚠ REVIEW 需要处理 · S 档 · 2m ━━━━━━━━━━
+实现      已增加折扣率精度校验及 3 个测试
+测试      主会话 25 passed
+阻塞      独立审查中 Mockito 初始化失败
+          core 14 passed，app 11 errors
+进度      check / ship 尚未执行；未提交
+下一步    环境处理好后说「继续」
+```
+
+备注：[审查详情](docs/changes/2026-09-18--discount-rate-precision/review.md)；[viktor-review](.agents/skills/viktor-review/SKILL.md) 要求“不得修改沙箱或权限参数……后重跑”，因此在独立审查失败处暂停。

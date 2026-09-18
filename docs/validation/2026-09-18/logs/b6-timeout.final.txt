@@ -1,0 +1,9 @@
+━━ ⚠ 需要处理 · CHECK · L · 32s ━━━━━━━━━━━━━━━━━━━━
+需求      docs/changes/2026-09-18--order-idempotency-key
+原因      独立验收进程在 30 秒时超时（spawn 退出码 2），没有生成新的 check.md
+          本会话的环境变量设了 `VIKTOR_SPAWN_TIMEOUT=30`（默认 480 秒）。这次要跑 verify，Testcontainers 需要拉起 Postgres，30 秒不够
+环境      Docker 已就绪（`docker ps` 成功）
+日志      docs/changes/2026-09-18--order-idempotency-key/.check.log（只有一行 `TIMEOUT`）
+状态      plan.md 没有改动（`stage: review` / `stage_result: ok`）。目录里现有的 check.md 是上一轮留下的，不能作为这一轮的证据
+处理      去掉 `VIKTOR_SPAWN_TIMEOUT` 或调大到 ≥ 480，然后重新派 check；如果 30 秒上限是有意设的，请说明这一轮怎么处理
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

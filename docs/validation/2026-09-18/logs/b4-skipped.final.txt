@@ -1,0 +1,14 @@
+```
+━━ ⛔ CHECK · L · 1m ━━━━━━━━━━━━━━━━━━━━━━━━
+结果      blocked（独立进程）
+AC        ✅ AC-6 · ⛔ AC-1 · AC-2 · AC-3 · AC-4 · AC-5
+  ⛔ AC-1 缺少证据：没有在真实 Postgres 上证明首次提交会落库，且写入了 key 和 hash
+  ⛔ AC-2 缺少证据：没有在真实 Postgres 上证明同键同体重放后库中仍为 1 条
+  ⛔ AC-3 缺少证据：没有在真实 Postgres 上证明并发时唯一约束兜底生效
+  ⛔ AC-4 缺少证据：只证明了 422 映射，没有证明请求未落库、库中金额仍为首次值
+  ⛔ AC-5 缺少证据：没有在真实 Postgres 上证明 409 请求未落库
+原因      OrderApiIT.java:33 整个类标了 @Disabled，verify 中 8 个用例全部 Skipped；没有观察到行为错误，未改业务代码
+需要      去掉 OrderApiIT 的 @Disabled，在 Docker 就绪的环境中跑 ./mvnw -q verify，确认 OrderApiIT 的 8 个用例都执行通过（Skipped 为 0）
+产物      docs/changes/2026-09-18--order-idempotency-key/check.md
+状态      plan.md → stage: check · stage_result: blocked
+```

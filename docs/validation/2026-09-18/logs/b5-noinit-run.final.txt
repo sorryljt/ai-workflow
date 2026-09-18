@@ -1,0 +1,43 @@
+```
+━━ ✅ 交付 · 折扣率允许为 0（免单） · L · 合计 5m ━━━━━━━━━━━━━━
+改动 5 文件 +62 −3 · 测试 31 passed · review 1 轮 · check ✅ 4 👀 0 ❌ 0 · 待人工 0 项
+```
+
+## 待人工确认
+| # | 项 | 怎么验 | 期望 |
+|---|----|--------|------|
+| — | 无 | — | — |
+
+## 本轮做了什么
+| 项 | 做了什么 | 改动文件 | 验证 | 结果 |
+|----|---------|---------|------|------|
+| AC-1 | 折扣率允许取 0，传 0 或 0.00 都算出 0.00 | OrderAmountCalculator.java | core 单测 zeroDiscountRateMeansFreeOrder | ✅ |
+| AC-2 | 负数和大于 1 仍报错，折扣率 1 为原价 | OrderAmountCalculatorTest.java | core 单测 3 例 | ✅ |
+| AC-3 | POST /orders 传 0 返回 201，响应和数据库里的金额都是 0.00 | CreateOrderRequest.java、OrderApiIT.java | OrderApiIT，真实 Postgres 16 | ✅ |
+| AC-4 | POST /orders 传 -0.01 或 1.01 返回 400，请求不进 service | OrderControllerWebMvcTest.java | WebMvc 测试 4 例 | ✅ |
+
+## 审查记录
+| 轮 | 结果 | BLOCKING | 处理 |
+|----|------|----------|------|
+| 1 | pass | 0 | — |
+
+剩余 SUGGESTED：OrderApiIT.java:78,81 —— 金额用 `isEqualTo` 比较，结果依赖 scale；同文件其他用例用的是 `isEqualByComparingTo`。check 跑 verify 时这条已通过，scale 确实是 2
+
+## 耗时
+| plan | code | review | check | ship | 合计 |
+|------|------|--------|-------|------|------|
+| 1m（不含等待确认） | 1m | 1m | 1m | 1m | 5m |
+
+## 沉淀的知识
+- glossary：折扣率 0 表示免单：2026-09-18 起允许，此前 0 被拒绝
+
+## 建议的 commit message
+```
+feat(order): 折扣率允许为 0（免单），金额为 0.00
+
+- OrderAmountCalculator 折扣率取值由 (0, 1] 放宽为 [0, 1]
+- POST /orders 的 discountRate 下界含 0（0 由 400 变为 201）
+- 负数、大于 1 仍报错；补 core 单测、WebMvc 与 IT 用例
+```
+
+备注：没有 commit；项目还没初始化，建议跑一次 /viktor-init

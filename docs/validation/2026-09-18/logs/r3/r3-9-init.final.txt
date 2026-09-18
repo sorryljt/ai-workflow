@@ -1,0 +1,15 @@
+━━ ⏸ INIT 需要你确认 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+**重新检测结果**（本轮实际运行）：typecheck ✅（exit 0）· lint ✅（exit 0）· test ✅（3 个测试文件，92 个用例全部通过）· dev 未验证 · knowledge 索引已重新生成（6 条）· 基线 commit 已有（9bf10eb）
+
+**AGENTS.md「项目信息」一节，建议改这几处：**
+1. 删掉「仓库目前没有任何 commit，`git log` 为空属正常」。现在已经有提交了，这条过时了。
+2. 新增一行命令验证：`test 已验证（92 个执行）；typecheck 已验证；lint 已验证；dev 未验证：启动入口，init 不启动服务`
+3. 在 checks 块后面补一节 `### 运行前提`，内容写：无（纯前端，数据在 localStorage 里，不依赖外部服务）
+4. 禁区里 `.claude/` 那一条改为只写 `.agents/` 由安装脚本维护。`.claude/settings.json` 的 permissions 由 init 维护，你也可以手工改。
+
+**`.claude/settings.json` 的 permissions.allow，建议加 2 条**（已有的 5 条保留，包括 `npm run build`）：
+- `Bash(bash .workflow/fe-ai-workflow/scripts/knowledge.sh:*)`
+- `Bash(npm run dev)`
+
+checks 命令本身（typecheck / lint / test / dev）跟检测结果一致，不需要改。
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

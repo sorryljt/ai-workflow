@@ -1,0 +1,37 @@
+```
+━━ ✅ 交付 · 订单金额舍入规则改为四舍五入 · S · 合计 5m ━━━━━━
+改动 3 文件 +35 −2 · 测试 11 passed · review 1 轮 · check ✅ 5 👀 0 ❌ 0 · 待人工 0 项
+```
+
+## 待人工确认
+无。
+
+## 本轮做了什么
+| 项 | 做了什么 | 改动文件 | 验证 | 结果 |
+|----|---------|---------|------|------|
+| AC-1 | 舍入方式从 `setScale(2, DOWN)` 改成 `setScale(2, HALF_UP)`，javadoc 同步更新 | core/.../OrderAmountCalculator.java | OrderAmountCalculatorTest 共 6 例，新增 3 例：1.665→1.67，0.678→0.68、0.0665→0.07，3.333→3.33 | ✅ |
+| AC-1 接口 + 落库 | 新增 IT：POST 单价 3.33、数量 1、折扣 0.5，接口返回的金额和落库金额都是 1.67 | app/.../OrderApiIT.java | 在真实 Postgres 上跑 `./mvnw verify`，OrderApiIT 3/3 通过 | ✅ |
+
+## 审查记录
+| 轮 | 结果 | BLOCKING | 处理 |
+|----|------|----------|------|
+| 1 | pass | 0 | — |
+
+剩余 SUGGESTED：OrderApiIT.java:50 —— 新 IT 交给 check 执行。check 跑了 verify 并通过，这条已处理完。
+
+## 耗时
+| plan | code | review | check | ship | 合计 |
+|------|------|--------|-------|------|------|
+| —（S 档） | 1m | 1m | 1m | 1m | 5m |
+
+## 沉淀的知识
+- glossary：订单金额舍入口径：HALF_UP 保留 2 位，历史订单为 DOWN 截断
+
+## 建议的 commit message
+```
+fix: 订单金额舍入由截断（DOWN）改为四舍五入（HALF_UP），保留 2 位小数
+
+历史订单金额不回算。
+```
+
+备注：未 commit。review/check 脚本已把 `docs/changes/` 下的 `.review.*` 等过程文件加入暂存区，提交前请确认是否保留。

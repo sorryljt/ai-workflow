@@ -1,0 +1,39 @@
+```
+━━ ✅ 交付 · 订单金额上限 100 万 · M · 合计 6m ━━━━━━━━━━━━━━
+改动 5 文件 +89 −2 · 测试 22 passed + IT 10 passed · review 1 轮 · check ✅ 3 👀 0 ❌ 0 · 待人工 0 项
+```
+
+## 待人工确认
+无
+
+## 本轮做了什么
+| 项 | 改动内容 | 改动文件 | 验证 | 结果 |
+|----|---------|---------|------|------|
+| AC-1 | 新增常量 `MAX_TOTAL = 1000000.00`，四舍五入后金额大于它就抛 IllegalArgumentException | core/…/OrderAmountCalculator.java | OrderAmountCalculatorTest 新增 3 个用例，共 11 个通过 | ✅ |
+| AC-2 | 超限请求在写库之前就抛异常，返回默认的 500 | 同上 | OrderApiIT.amountAboveLimitIsRejectedAndNotPersisted（真实 Postgres），OrderServiceTest 新增 1 个用例 | ✅ |
+| AC-3 | 改成按幂等键查不到已有订单时才计算金额；限额上线前存进去的超限订单，用原来的键重放仍然返回 201 | app/…/OrderService.java | OrderApiIT.existingOrderAboveLimitStillReplaysWithSameKeyAndBody，OrderServiceTest 新增 1 个用例 | ✅ |
+
+## 审查记录
+| 轮 | 结果 | BLOCKING | 处理 |
+|----|------|----------|------|
+| 1 | pass | 0 | — |
+
+剩余 SUGGESTED：知识库里旧的 pitfall“先算金额再按幂等键回查”已经过时，本轮已用新条目替换（supersede）
+
+## 耗时
+| plan | code | review | check | ship | 合计 |
+|------|------|--------|-------|------|------|
+| 1m（不含等待确认） | 2m | 1m | 1m | 1m | 6m |
+
+## 沉淀的知识
+- pitfalls：OrderService.create 幂等键回查未命中后才算金额，不要挪回前面（替换了旧条目）
+
+## 建议的 commit message
+```
+feat: 订单金额计算增加 100 万上限
+
+- OrderAmountCalculator 舍入后金额超过 1000000.00 抛 IllegalArgumentException
+- OrderService.create 改为幂等键回查未命中后才算金额，历史超限订单重放不受影响
+```
+
+备注：未提交；完整报告在 docs/changes/2026-09-18--amount-upper-limit/report.md

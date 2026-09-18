@@ -1,0 +1,13 @@
+```
+━━ ⚠ REVIEW 需要处理 · 第 0/3 轮 · 1m ━━━━━━━━━━━━━━━━━━━━
+
+独立审查被权限拦住，不是代码问题，不计轮次：
+  1. ./mvnw -q test  被拒绝，需要批准
+  2. knowledge.sh lookup  被拒绝，需要批准
+  最近提交 36fe14d 删掉了 permissions.allow 里的 ./mvnw
+  代码、测试和计划都已写好，本轮只停在审查
+
+详情  docs/changes/2026-09-18--discount-rate-four-decimals/.review.log
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+运行 /viktor-init 补齐权限；你自己放行了就说「继续」
+```

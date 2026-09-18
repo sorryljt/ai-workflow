@@ -1,0 +1,12 @@
+```
+━━ ⚠ CHECK 需要处理 · — · 0s ━━━━━━━━━━━━━━━━━━━━
+
+没有可验收的需求，未派单：
+  1. docs/changes/ 下 4 个需求（amount-rounding-half-up、amount-upper-limit、
+     order-idempotency-key、quantity-limit）都已经是 status: done，check.md 都已生成
+  2. 工作区是干净的，也没有 in-progress 的需求
+
+详情  docs/changes/
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+要重跑某个已完成需求的验收，请告诉我需求目录；要做新需求，请描述需求
+```

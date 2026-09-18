@@ -1,0 +1,10 @@
+```
+━━ ⛔ CHECK · L · 1m ━━━━━━━━━━━━━━━━━━━━━━━━
+Result    blocked (independent process)
+AC        ✅ 1 · 👀 0 · ❌ 0 · ⛔ 5 (evidence missing)
+  AC-1 to AC-5: need a real Postgres (OrderApiIT), but Docker isn't running (colima docker.sock not found), so verify didn't run
+Passed    AC-6 (./mvnw test ran this round: OrderControllerWebMvcTest 8/8, OrderAmountCalculatorTest 6/6; no failures)
+Needed    Start colima (`colima start`) or Docker Desktop, then check that `docker ps` works
+Business code  not changed · plan.md is now stage: check / stage_result: blocked
+Output    docs/changes/2026-09-18--order-idempotency-key/check.md
+```

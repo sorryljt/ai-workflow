@@ -1,0 +1,2 @@
+review 无法执行（见 docs/changes/2026-09-18--amount-upper-limit/review.md 的说明，通常是检查命令未放行）
+工作区未被 Claude Code 信任（未被信任时，子进程会忽略 .claude/settings.json 的放行规则）；请在项目目录（/Users/dawson/personWorkSpace/springboot-demo）交互式启动一次 claude 并选择信任，然后说「继续」。上级目录的信任不传递到独立 git 仓库

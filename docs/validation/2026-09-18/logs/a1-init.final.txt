@@ -1,0 +1,17 @@
+检测和验证都做完了。写入 AGENTS.md 前，有几个代码里看不出来的问题需要你确认：
+
+**检测结果（均为本轮实际运行）**
+- 技术栈：Java 17 / Spring Boot 3.3.5 / JPA + Postgres / JUnit 5 + Testcontainers 1.21.4，Maven 多模块（core、app），使用 `./mvnw`
+- `test: ./mvnw -q test` ✅ 共执行 5 个测试（core 3 + app WebMvc 2），不需要 Docker，约 2 秒
+- `verify: ./mvnw -q verify` ✅ 在 test 基础上再执行 2 个 `OrderApiIT`，使用真实 Postgres，需要 Docker（当前 Docker 29.8 已就绪）。日志里的 `duplicate key ... uk_orders_order_no` ERROR 来自 409 用例，属于预期输出
+- `dev: ./mvnw -pl app -am spring-boot:run`：没有运行，标为未验证（需要本地 Postgres）
+- 项目没有配置 typecheck 或 lint（没有 checkstyle、spotless 之类的插件）
+
+**需要确认**
+1. **typecheck / lint**：我的建议是这两行都不写，因为 `test` 本身包含编译。如果另加一行 `test-compile`，每次 Stop hook 都会重复编译。你也可以选择现在接入 spotless 或 checkstyle，我装好后放进 `lint`。
+2. **数据库结构**：目前用 `ddl-auto: update` 管理表结构，没有 Flyway 或 Liquibase。这是有意为之吗？约定里要写成"改实体就是改表结构"，还是"以后要引入迁移工具"？
+3. **提交规范**：从历史提交看，格式是 Conventional Commits 前缀加中文描述（如 `chore: …`），按这个写进约定可以吗？主干分支是 `main`。
+4. **禁区**：有没有不能碰的文件或目录？我的候选是：`.workflow/fe-ai-workflow/`（submodule）、`mvnw` / `mvnw.cmd` / `.mvn/`，以及 `pom.xml` 里 Testcontainers 的版本号（为兼容 colima / Docker 29 固定为 1.21.4，不能回退）。
+5. **`app/.attach_pid126`**：这是一个被提交进仓库的 JVM attach 临时文件。要删掉它并在 `.gitignore` 里加上 `.attach_pid*` 吗？
+
+你回复后，我会写入 AGENTS.md 项目信息、放行 `.claude/settings.json` 中的命令，并生成 `docs/knowledge/`。

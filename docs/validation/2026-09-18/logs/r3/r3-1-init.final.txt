@@ -1,0 +1,23 @@
+`/viktor-init` has run before and the 项目信息 section in AGENTS.md already exists. I compared it with what the project looks like now and found two things that differ. I haven't changed any files; tell me which of these to apply.
+
+**1. The 命令验证 line in AGENTS.md has old test counts**
+
+| | Written now | What I just ran |
+|---|---|---|
+| test | 5 run (core 3 + app WebMvc 2) | **17 run**, 0 skipped (core 8 + app 9: WebMvcTest 8, OrderServiceTest 1), BUILD SUCCESS |
+| verify | 7 run (includes 2 OrderApiIT) | **25 run** (the 17 above + 8 in OrderApiIT against real Postgres; Docker is running), BUILD SUCCESS |
+
+I'd change it to: `test 已验证（17 个执行：core 8 + app 9）；verify 已验证（25 个执行，含 8 个 OrderApiIT）`.
+
+**2. `.claude/settings.json` is missing 6 permission rules**
+
+It currently allows three commands: `./mvnw -q test`, `./mvnw -q verify` and `./mvnw:*`. The standard list also needs these:
+- `Bash(bash .workflow/fe-ai-workflow/scripts/knowledge.sh:*)`: the separate review and check processes need it to look up the knowledge base.
+- `Bash(./mvnw -pl app -am spring-boot:run)`: the dev command.
+- `Bash(docker ps:*)`, `Bash(docker rm:*)`, `Bash(docker run:*)`, `Bash(docker stop:*)`: verify depends on Docker.
+
+The existing rules stay as they are, so there would be 9 in total.
+
+**Nothing else changed:** the tech stack, the main branch (`main`), the check commands, 运行前提, 约定 and 禁区 all still match. There is already a baseline commit (`300ac03`). `docs/knowledge/` already uses one file per entry, so it doesn't need migrating.
+
+Reply with "全部应用" to apply both, or say which ones you want. Once I've applied them I'll rebuild `docs/knowledge/index.md` and show the INIT summary card.

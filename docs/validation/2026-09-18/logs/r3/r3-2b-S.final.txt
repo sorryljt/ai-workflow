@@ -1,0 +1,34 @@
+```
+━━ ✅ 交付 · quantity 非正数异常文案 · S · 合计 4m ━━━━━━━━━━━━
+改动 2 文件 +6 −3 · 测试 25 passed · review 1 轮 · check ✅ 1 👀 0 ❌ 0 · 待人工 0 项
+```
+
+## 待人工确认
+无
+
+## 本轮做了什么
+| 项 | 做了什么 | 改动文件 | 验证 | 结果 |
+|----|---------|---------|------|------|
+| AC-1 | quantity ≤ 0 时的异常信息改为「quantity 必须在 1 到 999 之间」，校验条件不变 | `core/.../OrderAmountCalculator.java`、`core/.../OrderAmountCalculatorTest.java` | `rejectsNonPositiveQuantity` 用 0、-1、Integer.MIN_VALUE 断言新文案，先看到失败再改到通过；`./mvnw -q verify` 全量通过，含 OrderApiIT 10 个用例 | ✅ |
+
+## 审查记录
+| 轮 | 结果 | BLOCKING | 处理 |
+|----|------|----------|------|
+| 1 | pass | 0 | — |
+
+剩余 SUGGESTED：`core/src/test/java/com/example/demo/core/OrderAmountCalculatorTest.java:87` —— 给 quantity=1000 的用例加一条断言，确认文案仍是「quantity 不能超过 999」
+
+## 耗时
+| plan | code | review | check | ship | 合计 |
+|------|------|--------|-------|------|------|
+| — | 1m | 1m | 1m | 1m | 4m |
+
+## 沉淀的知识
+无（本次没有符合标准的条目）
+
+## 建议的 commit message
+```
+fix: quantity 非正数时的异常信息改为「quantity 必须在 1 到 999 之间」
+```
+
+备注：超过 999 时的异常信息「quantity 不能超过 999」没有改；项目里没有 CHANGELOG.md；还没有 commit，其中需求目录下的部分文件已被加入暂存区。

@@ -1,0 +1,42 @@
+```
+━━ ✅ 交付 · 订单创建接口支持幂等键 · L · 合计 10m ━━━━━━━━━━━
+改动 9 文件 +281 −8 · 测试 22 passed · review 1 轮 · check ✅ 6 👀 0 ❌ 0 · 待人工 1 项
+```
+
+## 待人工确认
+| # | 项 | 怎么验 | 期望 |
+|---|----|--------|------|
+| 1 | 在已有数据的库上升级（IT 用的是空库） | 连到已有 `orders` 表的库执行 `./mvnw -pl app -am spring-boot:run`，再在 psql 里执行 `\d orders` | 出现 `idempotency_key`、`request_hash` 两列和唯一约束 `uk_orders_idempotency_key`；历史行这两列都是 NULL |
+
+## 本轮做了什么
+| 项 | 做了什么 | 改动文件 | 验证 | 结果 |
+|----|---------|---------|------|------|
+| 续接 | 代码指纹没变（7056f88a1a17），AC-1 的证据要求变了（输入摘要 e3a77e → 3115b7），所以只重跑 check，业务代码没改 | — | — | — |
+| AC-1 | 新增的“两个请求并发使用同一幂等键”证据要求，已由 8 线程并发用例覆盖 | — | `./mvnw -q verify`，OrderApiIT 8/8 | ✅ |
+| AC-2～AC-6 | 用独立进程重新验收 | — | surefire 14/14，failsafe 8/8 | ✅ |
+
+## 审查记录
+| 轮 | 结果 | BLOCKING | 处理 |
+|----|------|----------|------|
+| 1 | pass | 0 | — |
+
+剩余 SUGGESTED：
+- Order.java:37 —— `request_hash` 在代码里是 varchar(64)，plan 里写的是 char(64)，两边要统一
+- OrderService.java:59 —— 给 `fingerprint` 补 surefire 单测，覆盖“等值写法哈希相同”和“quantity 不同则哈希不同”
+
+## 耗时
+| plan | code | review | check | ship | 合计 |
+|------|------|--------|-------|------|------|
+| 1m（不含等待确认） | 3m | 2m | 1m×3 | 1m×2 | 10m |
+
+## 沉淀的知识
+- 本轮没有新增，上一轮 ship 写入的 decision、pitfall、glossary 各 1 条仍然有效
+
+## 建议的 commit message
+```
+test: 重跑订单幂等键验收（AC-1 补充并发证据要求）
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+```
+
+备注：没有自动提交。plan.md、report.md、check.md 已更新，状态已改为 done；完整报告在 `docs/changes/2026-09-18--order-idempotency-key/report.md`。

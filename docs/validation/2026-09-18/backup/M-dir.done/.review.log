@@ -1,0 +1,15 @@
+The review passed with no BLOCKING issues and 4 SUGGESTED items. The integration tests (`OrderApiIT`) did not run this round, because `./mvnw -q verify` needed approval I didn't get. So AC-1 to AC-5, including the 8-thread concurrency case, have tests written but no run results yet.
+
+- **Unit tests:** `./mvnw -q test` passed, 14 of 14 (6 in core, 8 in the controller tests). All 6 acceptance criteria have tests, but only AC-6 (bad `Idempotency-Key` → 400) actually ran here.
+- **Knowledge base:** the knowledge lookup script also needed approval, so I read the knowledge folder directly. It has one entry (how order amounts are rounded), and the change doesn't break it.
+- **Code reading:** I checked the three paths: look up the key before inserting, look it up again after a unique-key clash, and compare request fingerprints. I found no bugs. Requests without the header still get 201 or 409 as before.
+
+The 4 SUGGESTED items:
+1. The check step should run `./mvnw -q verify` to get real results for AC-1 to AC-5.
+2. The check step should confirm that upgrading an existing `orders` table with the auto schema update adds both new columns and the unique constraint. The integration tests only use an empty database.
+3. The plan says `request_hash` is `char(64)`, but the code makes it `varchar(64)`. It works either way; the two just disagree.
+4. The request fingerprint logic (treating `10` and `10.00` as equal) has no fast unit test, only the Docker-based integration test.
+
+The report is in `docs/changes/2026-09-18--order-idempotency-key/review.md`. I changed no other files.
+
+Separately, several connected services (asana, atlassian, datadog, github, linear, notion, pagerduty, slack) need authorization before they can be used. Do that with `claude mcp` or `/mcp` in an interactive session.

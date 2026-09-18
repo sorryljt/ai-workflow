@@ -1,0 +1,271 @@
+#!/usr/bin/env bash
+# fe-ai-workflow 后端验证驱动脚本（在 Mac 终端运行）
+# 用法：bash ~/personWorkSpace/viktor-validation/run.sh [all|a|b|c|d]
+#   a  接入 + init + S 档 + M 档          b  定向场景 4.1～4.6（自动启停 Docker）
+#   c  前端回归（todolist-demo 重跑 F5）  d  Codex 端 S 档
+# 所有日志写到 ~/personWorkSpace/viktor-validation/logs/，跑完告诉 Claude 即可，分析由 Claude 做。
+set -uo pipefail
+
+WS="$HOME/personWorkSpace"; WF="$WS/fe-ai-workflow"; WF_SHA=2076810
+DEMO="$WS/springboot-demo"; NOINIT="$WS/springboot-demo-noinit"; TODO="$WS/todolist-demo"
+V="$WS/viktor-validation"; L="$V/logs"; BK="$V/backup"; mkdir -p "$L" "$BK"
+PHASE="${1:-all}"
+
+say(){ printf '\n\033[1;36m[%s] %s\033[0m\n' "$(date +%H:%M:%S)" "$*" | tee -a "$L/driver.log"; }
+die(){ printf '\n\033[1;31m停止：%s\033[0m\n' "$*" | tee -a "$L/driver.log"; exit 1; }
+gs(){ # gs <repo> <name>：记录 git status 作为证据
+  { echo "== $2 @ $(date '+%F %T') =="; git -C "$1" status --short; echo; } >> "$L/git-status.log"; }
+
+# claude 无头会话：cl <日志名> <会话id> <new|resume> <提示词>
+cl(){ local name="$1" sid="$2" mode="$3" prompt="$4" s e
+  s=$(date +%s); say "claude[$name] ← $prompt"
+  if [[ "$mode" == new ]]; then set -- --session-id "$sid"; else set -- --resume "$sid"; fi
+  claude -p "$prompt" "$@" --dangerously-skip-permissions --output-format stream-json --verbose \
+    > "$L/$name.jsonl" 2> "$L/$name.stderr"; local rc=$?
+  e=$(date +%s); echo "$name rc=$rc 耗时=$((e-s))s" | tee -a "$L/driver.log"
+  # 抽出最终回复，方便人看
+  python3 - "$L/$name.jsonl" > "$L/$name.final.txt" <<'PY'
+import json,sys
+last=""
+for line in open(sys.argv[1],encoding="utf-8"):
+    try: o=json.loads(line)
+    except Exception: continue
+    if o.get("type")=="result": last=o.get("result") or ""
+print(last)
+PY
+  cat "$L/$name.final.txt"
+}
+uuid(){ uuidgen | tr 'A-Z' 'a-z'; }
+fm_set(){ # fm_set <plan.md> key value ...：改 frontmatter 字段
+  python3 - "$@" <<'PY'
+import re,sys
+p=sys.argv[1]; kv=sys.argv[2:]
+t=open(p,encoding="utf-8").read(); head,sep,body=t.partition("\n---\n")
+for k,v in zip(kv[0::2],kv[1::2]):
+    if re.search(rf"^{k}:.*$",head,flags=re.M): head=re.sub(rf"^{k}:.*$",f"{k}: {v}",head,count=1,flags=re.M)
+    else: head+=f"\n{k}: {v}"
+open(p,"w",encoding="utf-8").write(head+sep+body)
+PY
+}
+
+# ---------- Docker 启停 ----------
+use_colima(){ command -v colima >/dev/null 2>&1 && colima status >/dev/null 2>&1; }
+docker_up(){ docker info >/dev/null 2>&1; }
+docker_off(){ say "停 Docker"
+  if use_colima; then colima stop; else osascript -e 'quit app "Docker"' 2>/dev/null || osascript -e 'quit app "Docker Desktop"' 2>/dev/null; fi
+  for i in $(seq 1 60); do docker_up || { say "Docker 已停"; return 0; }; sleep 2; done
+  read -r -p "自动停 Docker 失败，请手动停掉 Docker 后回车继续 " _; }
+docker_on(){ say "开 Docker"
+  if command -v colima >/dev/null 2>&1 && [[ -d "$HOME/.colima/default" ]] && ! [[ -d /Applications/Docker.app ]]; then colima start; else open -a Docker; fi
+  for i in $(seq 1 90); do docker_up && { say "Docker 就绪"; return 0; }; sleep 2; done
+  read -r -p "自动启动 Docker 失败，请手动打开 Docker 后回车继续 " _; }
+# colima 下 Testcontainers 需要这两个变量
+if [[ -z "${DOCKER_HOST:-}" && -S "$HOME/.colima/default/docker.sock" && ! -S /var/run/docker.sock ]]; then
+  export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock" TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+fi
+export DOCKER_API_VERSION="${DOCKER_API_VERSION:-1.44}"   # docker-java 兜底：新版 Docker 引擎拒绝 1.32
+# 本机系统代理开了 SOCKS（127.0.0.1:15235），macOS JDK 会自动带上 socksProxyHost，且例外列表里没有 localhost，
+# 导致 JDBC 连 Testcontainers 映射端口报 UnknownHostException: localhost。对 JVM（含 failsafe 分叉进程）统一放行本地地址。
+export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:--DsocksNonProxyHosts=localhost|127.*|[::1]|*.local|169.254/16}"
+
+preflight(){
+  for c in git claude python3 java docker; do command -v $c >/dev/null 2>&1 || die "缺少命令：$c"; done
+  java -version 2>&1 | head -1 | tee -a "$L/driver.log"
+  [[ "$(git -C "$WF" rev-parse --short HEAD)" == "$WF_SHA" ]] || die "fe-ai-workflow HEAD 不是 $WF_SHA"
+  git -C "$WF" status --short | grep -q . && say "注意：fe-ai-workflow 工作区有未提交改动（见 git-status.log）"; gs "$WF" "fe-ai-workflow 起点"
+}
+M_DIR(){ ls -d "$DEMO"/docs/changes/*--* 2>/dev/null | while read -r d; do grep -qE '^tier: [ML]' "$d/plan.md" 2>/dev/null && echo "$d"; done | tail -1; }
+
+# ================= a：接入 + init + S + M =================
+phase_a(){
+  preflight; cd "$DEMO" || die "没有 $DEMO"
+  if [[ ! -d .workflow/fe-ai-workflow ]]; then
+    say "第一步：基线自检（./mvnw test / verify）"
+    ./mvnw -q test > "$L/a0-mvn-test.log" 2>&1 || die "./mvnw test 失败，见 logs/a0-mvn-test.log"
+    docker_up || docker_on
+    ./mvnw -q verify > "$L/a0-mvn-verify.log" 2>&1 || die "./mvnw verify 失败（Docker / Testcontainers），见 logs/a0-mvn-verify.log"
+    grep -h "Tests run" core/target/surefire-reports/*.txt app/target/surefire-reports/*.txt app/target/failsafe-reports/*.txt 2>/dev/null | tee -a "$L/driver.log"
+    say "接入工作流：submodule 指向本地 $WF @ $WF_SHA"
+    git -c protocol.file.allow=always submodule add "$WF" .workflow/fe-ai-workflow || die "submodule add 失败"
+    git -C .workflow/fe-ai-workflow checkout -q "$WF_SHA" || die "checkout $WF_SHA 失败"
+    .workflow/fe-ai-workflow/scripts/install.sh .workflow/fe-ai-workflow . | tee "$L/a0-install.log"
+    git add -A && git commit -qm "chore: add fe-ai-workflow" && git log --oneline -3 | tee -a "$L/driver.log"
+  fi
+  gs "$DEMO" "a 接入后"
+  docker_up || docker_on
+
+  if ! grep -q '```viktor-checks' AGENTS.md; then
+    local sid; sid=$(uuid)
+    cl a1-init "$sid" new "/viktor-init"
+    if ! grep -q '```viktor-checks' AGENTS.md; then
+      cl a1-init-2 "$sid" resume "没有要补充的约定和禁区，主干分支 main，提交规范用 Conventional Commits。按你的探测和验证结果写入。"
+    fi
+    cp AGENTS.md "$BK/AGENTS.after-init.md"; cp .claude/settings.json "$BK/settings.after-init.json"
+    gs "$DEMO" "a init 后"
+    git add -A && git commit -qm "chore: viktor-init"
+  fi
+
+  if ! ls docs/changes 2>/dev/null | grep -q .; then
+    gs "$DEMO" "a S 档前"
+    cl a2-S "$(uuid)" new "/viktor-flow 订单金额的舍入规则从直接截断（RoundingMode.DOWN）改为四舍五入（HALF_UP），仍保留 2 位小数"
+    gs "$DEMO" "a S 档后"
+    git add -A && git commit -qm "feat: 订单金额改为四舍五入（viktor S 档）"
+  fi
+
+  if [[ -z "$(M_DIR)" ]]; then
+    gs "$DEMO" "a M 档前"
+    local sid; sid=$(uuid); echo "$sid" > "$L/m-session-id"
+    cl a3-M-plan "$sid" new "/viktor-flow 订单创建接口增加幂等键：同一幂等键重复提交返回首次结果，不重复落库"
+    local md; md="$(M_DIR)"
+    [[ -n "$md" ]] || die "M 档没有生成 tier: M 的 plan.md（可能判成了别的档），见 logs/a3-M-plan.final.txt"
+    cp "$md/plan.md" "$BK/M-plan.draft.md"
+    cl a3-M-run "$sid" resume "OK"
+    gs "$DEMO" "a M 档后"
+    git add -A && git commit -qm "feat: 订单创建接口幂等键（viktor M 档）"
+  fi
+  local md; md="$(M_DIR)"; cp "$md/plan.md" "$BK/M-plan.done.md"; cp -R "$md" "$BK/M-dir.done"
+  say "阶段 a 完成"
+}
+
+# ================= b：定向场景 =================
+restore_m(){ local md; md="$(M_DIR)"; cp "$BK/M-plan.done.md" "$md/plan.md"; rm -f "$md/.check.done"; }
+it_files(){ grep -rl --include='*IT.java' -e '@SpringBootTest' -e '@Testcontainers' "$DEMO/app/src/test" 2>/dev/null; }
+phase_b(){
+  preflight; cd "$DEMO" || die "没有 $DEMO"; local md; md="$(M_DIR)"; [[ -n "$md" ]] || die "先跑阶段 a"
+  [[ -f "$BK/M-plan.done.md" ]] || cp "$md/plan.md" "$BK/M-plan.done.md"
+  gs "$DEMO" "b 起点"
+
+  say "4.1 关键 AC 缺库 → blocked、不改代码"
+  restore_m; fm_set "$md/plan.md" status in-progress stage review stage_result ok
+  git add -A && git commit -qm "test: 4.1 前置（plan 退回 review）" -q
+  docker_off; gs "$DEMO" "4.1 前"
+  cl b1-blocked "$(uuid)" new "/viktor-check"
+  gs "$DEMO" "4.1 后"; git diff --stat HEAD > "$L/b1-diffstat.txt"; cp "$md/plan.md" "$L/b1-plan.md"; cp "$md/check.md" "$L/b1-check.md" 2>/dev/null
+
+  say "4.2 环境恢复后续接：先核对指纹，再只重跑 check"
+  docker_on; gs "$DEMO" "4.2a 前"
+  cl b2a-resume "$(uuid)" new "/viktor-flow"
+  gs "$DEMO" "4.2a 后"; cp "$md/plan.md" "$L/b2a-plan.md"; cp "$md/check.md" "$L/b2a-check.md" 2>/dev/null
+  git add -A && git commit -qm "test: 4.2a" -q
+  say "4.2b 手改一条 AC 的证据要求后续接（先把状态退回 check 完成、未 ship）"
+  fm_set "$md/plan.md" status in-progress stage check stage_result ok
+  python3 - "$md/plan.md" <<'PY'
+import sys,re
+p=sys.argv[1]; t=open(p,encoding="utf-8").read()
+i=t.find("证据：")
+if i<0: sys.exit("plan 里没有 证据：")
+j=t.find("\n",i)
+t=t[:j]+"；另需覆盖两个并发请求携带同一幂等键的情况"+t[j:]
+open(p,"w",encoding="utf-8").write(t)
+PY
+  git add -A && git commit -qm "test: 4.2b 前置（改证据要求）" -q; gs "$DEMO" "4.2b 前"
+  cl b2b-evidence "$(uuid)" new "/viktor-flow"
+  gs "$DEMO" "4.2b 后"; cp "$md/plan.md" "$L/b2b-plan.md"; cp "$md/check.md" "$L/b2b-check.md" 2>/dev/null
+  git add -A && git commit -qm "test: 4.2b" -q
+
+  say "4.3 非关键人工项 → manual"
+  restore_m; fm_set "$md/plan.md" status in-progress stage review stage_result ok
+  python3 - "$md/plan.md" <<'PY'
+import sys
+p=sys.argv[1]; lines=open(p,encoding="utf-8").read().split("\n")
+h=next(i for i,l in enumerate(lines) if l.startswith("## 验收标准"))
+n=next((i for i in range(h+1,len(lines)) if lines[i].startswith("## ")),len(lines))
+k=n
+while k>h+1 and not lines[k-1].strip(): k-=1
+lines.insert(k,"- [ ] AC-9（非关键，理由：只影响运维排查体验，不涉及数据写入与接口契约）：在生产日志平台（Kibana）按 orderNo 检索，能看到创建订单的 INFO 日志；只能在生产日志平台人工确认")
+open(p,"w",encoding="utf-8").write("\n".join(lines))
+PY
+  git add -A && git commit -qm "test: 4.3 前置（加非关键人工 AC）" -q; gs "$DEMO" "4.3 前"
+  cl b3-manual "$(uuid)" new "/viktor-check"
+  gs "$DEMO" "4.3 后"; cp "$md/plan.md" "$L/b3-plan.md"; cp "$md/check.md" "$L/b3-check.md" 2>/dev/null
+  git add -A && git commit -qm "test: 4.3" -q
+
+  say "4.4 集成测试全部 @Disabled → 不得 pass"
+  restore_m; fm_set "$md/plan.md" status in-progress stage review stage_result ok
+  mkdir -p "$BK/it"; : > "$BK/it/list"; for f in $(it_files); do cp "$f" "$BK/it/$(basename "$f")"; echo "$f" >> "$BK/it/list"
+    python3 - "$f" <<'PY'
+import sys,re
+p=sys.argv[1]; t=open(p,encoding="utf-8").read()
+t=re.sub(r"^(package [^\n]+\n)", r"\1\nimport org.junit.jupiter.api.Disabled;\n", t, count=1, flags=re.M)
+t=re.sub(r"^((?:public\s+)?(?:final\s+)?class\s)", r'@Disabled("临时：验证全部跳过不得通过")\n\1', t, count=1, flags=re.M)
+open(p,"w",encoding="utf-8").write(t)
+PY
+  done; it_files | tee "$L/b4-disabled-files.txt"
+  git add -A && git commit -qm "test: 4.4 前置（IT 全部 @Disabled）" -q; gs "$DEMO" "4.4 前"
+  cl b4-skipped "$(uuid)" new "/viktor-check"
+  gs "$DEMO" "4.4 后"; cp "$md/check.md" "$L/b4-check.md" 2>/dev/null; cp "$md/plan.md" "$L/b4-plan.md"
+  while read -r f; do cp "$BK/it/$(basename "$f")" "$f"; done < "$BK/it/list"
+  git add -A && git commit -qm "test: 4.4 还原 @Disabled" -q; gs "$DEMO" "4.4 还原后"
+
+  say "4.6 超时清理（VIKTOR_SPAWN_TIMEOUT=30）"
+  restore_m; fm_set "$md/plan.md" status in-progress stage review stage_result ok
+  git add -A && git commit -qm "test: 4.6 前置" -q
+  docker ps -a --format '{{.Names}} {{.Image}} {{.Status}}' > "$L/b6-docker-before.txt"
+  export VIKTOR_SPAWN_TIMEOUT=30; cl b6-timeout "$(uuid)" new "/viktor-check"; unset VIKTOR_SPAWN_TIMEOUT
+  sleep 5; docker ps -a --format '{{.Names}} {{.Image}} {{.Status}}' > "$L/b6-docker-after.txt"
+  cp "$md/.check.resources" "$L/b6-check.resources" 2>/dev/null; cp "$md/.check.log" "$L/b6-check.log" 2>/dev/null
+  ps -axo pid,pgid,command | grep -E 'claude -p|surefire|failsafe' | grep -v grep > "$L/b6-ps-after.txt"
+  cp "$md/plan.md" "$L/b6-plan.md"; gs "$DEMO" "4.6 后"
+  restore_m; git add -A && git commit -qm "test: 定向场景收尾，plan 还原" -q
+
+  say "4.5 未初始化预检（springboot-demo-noinit）"
+  # noinit 可能已提前建好（为信任工作区）###############
+  if [[ ! -f "$NOINIT/AGENTS.md" ]]; then mkdir -p "$NOINIT"; rm -rf "$NOINIT/.git"; cp -R "$DEMO/." "$NOINIT/"; fi
+  cd "$NOINIT"
+  python3 - AGENTS.md <<'PY'
+import sys,re
+p=sys.argv[1]; t=open(p,encoding="utf-8").read()
+i=t.find("## 项目信息（viktor-init）")
+if i>=0:
+    j=t.find("\n## ",i+1); t=t[:i].rstrip()+"\n"+(t[j:] if j>=0 else "")
+open(p,"w",encoding="utf-8").write(t)
+PY
+  git add -A && git commit -qm "test: 删除项目信息节，模拟未初始化" -q
+  shasum AGENTS.md .claude/settings.json > "$L/b5-sha-before.txt"; gs "$NOINIT" "4.5 前"
+  cl b5-noinit "$(uuid)" new "/viktor-flow 订单金额计算的折扣率允许为 0（免单），此时金额为 0.00；负数和大于 1 仍然报错"
+  shasum AGENTS.md .claude/settings.json > "$L/b5-sha-after.txt"; gs "$NOINIT" "4.5 后"
+  d=$(ls -dt docs/changes/*--* | head -1); cp "$d/plan.md" "$L/b5-plan.md"; cp "$d/.check.prompt.md" "$L/b5-check.prompt.md" 2>/dev/null; cp "$d/.review.prompt.md" "$L/b5-review.prompt.md" 2>/dev/null
+  say "阶段 b 完成"
+}
+
+# ================= c：前端回归 =================
+phase_c(){
+  preflight; cd "$TODO" || die "没有 $TODO"
+  git status --short | grep -q . && die "todolist-demo 工作区不干净"
+  gs "$TODO" "c 起点（main）"
+  git rev-parse -q --verify f5-rerun >/dev/null || git checkout -q -b f5-rerun f129c8c || die "建分支失败"
+  git checkout -q f5-rerun
+  git -C .workflow/fe-ai-workflow fetch -q "$WF" HEAD && git -C .workflow/fe-ai-workflow checkout -q "$WF_SHA" || die "submodule 更新失败"
+  .workflow/fe-ai-workflow/scripts/install.sh .workflow/fe-ai-workflow . | tee "$L/c0-install.log"
+  git add -A && git commit -qm "chore: upgrade fe-ai-workflow to $WF_SHA" -q; gs "$TODO" "c 升级后"
+  local sid; sid=$(uuid)
+  cl c1-F5-plan "$sid" new "/viktor-flow 顶部加一个搜索框，输入即过滤（无提交按钮），按待办文字做不区分大小写的子串匹配。搜索与已有的状态筛选（全部 / 未完成 / 已完成）、优先级排序开关三者叠加生效。有搜索词且无匹配时列表区显示「没有匹配的待办」。搜索词只存在于组件状态里，不进 localStorage、不随刷新保留。"
+  cl c1-F5-run "$sid" resume "OK"
+  gs "$TODO" "c F5 后"
+  git add -A && git commit -qm "feat: F5 重跑（fe-ai-workflow ${WF_SHA}）" -q
+  git checkout -q main && git submodule update -q; gs "$TODO" "c 回到 main"
+  say "阶段 c 完成（重跑结果在分支 f5-rerun）"
+}
+
+# ================= d：Codex =================
+phase_d(){
+  preflight; command -v codex >/dev/null || die "缺少 codex 命令"
+  cd "$DEMO"; git status --short | grep -q . && { git add -A; git commit -qm "chore: 阶段 d 前收尾" -q; }
+  gs "$DEMO" "d 前"
+  say "Codex S 档"
+  codex exec --dangerously-bypass-approvals-and-sandbox --json \
+    '$viktor-flow 订单金额计算增加数量上限：quantity 超过 999 时抛 IllegalArgumentException' \
+    > "$L/d1-codex.jsonl" 2> "$L/d1-codex.stderr"; echo "codex rc=$?" | tee -a "$L/driver.log"
+  gs "$DEMO" "d 后"
+  d=$(ls -dt docs/changes/*--* | head -1); echo "$d" > "$L/d1-dir.txt"
+  head -5 "$d/.review.log" "$d/.check.log" 2>/dev/null > "$L/d1-spawn-head.txt"
+  git add -A && git commit -qm "feat: 数量上限（viktor S 档 / Codex）" -q
+  say "阶段 d 完成"
+}
+
+case "$PHASE" in
+  a) phase_a;; b) phase_b;; c) phase_c;; d) phase_d;;
+  all) phase_a && phase_b && phase_c && phase_d;;
+  *) die "未知阶段：$PHASE";;
+esac
+say "结束。回到 Claude 说一声「跑完了」"

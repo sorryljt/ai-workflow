@@ -1,0 +1,10 @@
+```
+━━ ✔ INIT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+技术栈    Vite 8 + React 19 + TS 6 / Vitest + RTL + jsdom / npm
+检查命令  typecheck ✅ lint ✅ test ✅ verify — e2e — dev 未验证
+放行      7 条（新增 2 条）
+产物      AGENTS.md 项目信息 · docs/knowledge/ · .claude/settings.json
+下一步    /viktor-flow <需求>
+```
+
+review / check 子进程要用上放行规则，前提是这个项目目录被 Claude Code 信任过。这次会话是非交互启动的，我没法确认。所以请在项目目录里交互式打开一次 Claude Code，并选择信任。

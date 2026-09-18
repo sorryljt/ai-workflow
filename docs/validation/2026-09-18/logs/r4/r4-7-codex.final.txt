@@ -1,0 +1,15 @@
+THREAD 01a0b50b-fed4-7ec2-8448-6cd8fcc1ba31
+```text
+━━ ⚠ CHECK 需要处理 · S 档 ━━━━━━━━━━
+文案已改为「unitPrice 必须大于等于 0」
+校验逻辑未改；35 项测试通过，review 通过。
+
+独立验收未放行：
+  1. 现有测试缺少负数文案、零单价断言。
+  2. 主会话临时验证通过，但未被独立验收采纳。
+
+流程停在 check，尚未 ship，未提交。
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+依据 [viktor-check 技能](/Users/dawson/personWorkSpace/springboot-demo/.agents/skills/viktor-check/SKILL.md)：“2 / 3：同 viktor-review（进程失败 / 无 CLI）……只能输出需要处理卡”。详情见 [check.md](/Users/dawson/personWorkSpace/springboot-demo/docs/changes/2026-09-18--unit-price-message/check.md)。

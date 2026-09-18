@@ -1,0 +1,5 @@
+━━ ✔ CHECK · L · 56s ━━━━━━━━━━━━━━━━━━━━━━━━
+结果      manual（独立进程，`./mvnw verify` 已通过：OrderApiIT 8/8 连真实 Postgres 跑通，WebMvcTest 8/8，core 6/6）
+AC        ✅ AC-1～AC-6 · 👀 AC-9（非关键，待人工：部署后在生产 Kibana 按 orderNo 检索，应能看到创建订单的 INFO 日志）· ❌ 0
+产物      docs/changes/2026-09-18--order-idempotency-key/check.md
+下一步    → /viktor-ship

@@ -1,0 +1,26 @@
+AGENTS.md 里已经有"项目信息"节。这是重复执行，所以只列出和本次探测不一致的地方，你确认后我再改。
+
+**本轮检查命令结果**
+- typecheck：`npm run typecheck` 退出码 0。它跑的是 `tsc -b`，覆盖 tsconfig.app.json 和 tsconfig.node.json。
+- lint：`npm run lint` 退出码 0，扫描了 10 个文件（src/ 加 vite.config.ts）。
+- test：`npm test` 跑了 3 个测试文件，82 个用例全部通过，没有跳过的。
+- dev：按规则不启动，标"未验证"。
+
+**准备对"项目信息"节做的改动**
+
+| # | 改动 | 原因 |
+|---|------|------|
+| 1 | 删掉"仓库目前没有任何 commit，`git log` 为空属正常" | 这条已经过时，现在有 6 个 commit，HEAD 是 c140472 |
+| 2 | 新增一行"命令验证：test 已验证（82 个执行）；typecheck 已验证；lint 已验证；dev 未验证：启动入口，不运行" | 模板要求有这一行，原来缺 |
+| 3 | 在 viktor-checks 块后新增"### 运行前提：无" | 模板要求有这一节，原来缺。这是纯前端项目，不依赖外部环境 |
+| 4 | 约定里新增一条：oxlint 的 warning 不会让退出码变成非 0，只有 error 会 | 我放了一个带未使用变量和 `debugger` 的文件进去试，报了两个 warning，退出码仍是 0。Stop hook 拦不住 warning |
+| 5 | 禁区里 `.claude/` 那条改成只写 `.claude/skills/`、`.claude/hooks/` 和 `.agents/` | `.claude/settings.json` 的 permissions 由 viktor-init 维护，也可以手工改，不应列为禁区 |
+| 6 | "包管理器"改名为"构建工具" | 和模板用词对齐，内容不变 |
+
+**已经直接做了的两件事**
+- `.claude/settings.json` 补了两条放行规则：`Bash(bash .workflow/fe-ai-workflow/scripts/knowledge.sh:*)` 和 `Bash(npm run dev)`。原有的 5 条保留，其中包括 `npm run build`。
+- 重建了 `docs/knowledge/index.md`，现在有 6 条。变化只是 3 条状态从 `?active` 规范成 `active`。
+
+回复"确认"就按上表更新 AGENTS.md，也可以指明只改其中几条。
+
+另外，MCP 里 asana、atlassian、datadog、github、linear、notion、pagerduty、slack 这几个服务还没授权，要在交互式会话里通过 `/mcp` 授权后才能用。这次初始化用不到它们。

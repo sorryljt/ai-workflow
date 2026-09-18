@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/viktor-gate.sh\"",
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(./mvnw -q test)",
+      "Bash(./mvnw -q verify)",
+      "Bash(./mvnw:*)"
+    ]
+  }
+}

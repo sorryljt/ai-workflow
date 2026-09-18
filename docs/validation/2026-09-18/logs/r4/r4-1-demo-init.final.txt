@@ -1,0 +1,16 @@
+我重新跑了一遍 test 和 verify，都通过了。和 AGENTS.md 里已有的“项目信息”节比，有 2 处不一致；你确认后我再改 AGENTS.md，现在还没动它：
+
+| 项 | 现在写的 | 本轮结果 |
+|---|---|---|
+| 命令验证行 | test 17 个执行（core 8 + app 9）；verify 25 个执行，其中 OrderApiIT 8 个 | test **25** 个执行（core 14 + app 11）；verify **35** 个执行，其中 OrderApiIT **10** 个 |
+| 子进程参数 | 没有这一行 | 这是 Maven 项目，要加一行：`- 子进程参数：codex --sandbox workspace-write -c sandbox_workspace_write.network_access=true`。它会让 Codex 跑审查和验收的独立进程时可以访问外网。不加的话，Codex 默认沙箱不能联网，Mockito 等测试在这种环境下起不来。 |
+
+其余没变：
+- **检查命令**：`viktor-checks` 块和“运行前提”都不用改，Docker 可用。
+- **放行规则**：`.claude/settings.json` 里的 9 条跟应有的清单一致，不用增减。
+- **基线提交**：已有。
+- **知识目录**：`docs/knowledge/index.md` 已重建，共 7 行（含表头），文件内容没有变化。
+
+回复“确认”我就把这两处写进 AGENTS.md，然后给出 INIT 节点卡。你也可以只改其中一处。
+
+另外，engineering 插件的几个服务（asana、atlassian、datadog、github、linear、notion、pagerduty、slack）还没授权，这次初始化用不到它们。要用的话，需要在 claude.ai 的连接器设置里授权，或者在交互式会话里用 `/mcp` 授权。

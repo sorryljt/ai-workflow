@@ -1,0 +1,7 @@
+```
+━━ ✔ INIT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+技术栈    Java 17 / Spring Boot 3.3.5 + JPA(Postgres) / JUnit 5 + Testcontainers / Maven 多模块（./mvnw）
+检查命令  typecheck —（项目无，test 含编译）lint —（项目无） test ✅（5 个执行） verify ✅（7 个，含 2 个 IT，需 Docker） e2e — dev 未验证（需本地 Postgres）（已放行 3 条）
+产物      AGENTS.md 项目信息 · docs/knowledge/ · .claude/settings.json
+下一步    /viktor-flow <需求>
+```

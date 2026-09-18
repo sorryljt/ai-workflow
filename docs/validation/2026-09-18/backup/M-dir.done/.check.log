@@ -1,0 +1,6 @@
+All 6 acceptance criteria pass. I ran `./mvnw verify` once and it succeeded (22 tests, 0 failures). I wrote the result to `docs/changes/2026-09-18--order-idempotency-key/check.md` and changed no other files.
+
+- **Environment:** Docker was ready, so `verify` ran the integration tests against a real Postgres (`postgres:16-alpine`) container. I didn't start the dev server; the integration tests already call the real API. There's no UI, so I didn't use a browser.
+- **AC-1 to AC-5:** The integration tests call `POST /orders` over HTTP and then query the database. They cover the first request with a key, a repeat with the same key and body (including `10` vs `10.00`), 8 concurrent requests with one key, the same key with a different body (422), and the old behaviour without a key (409 on a repeated `orderNo`).
+- **AC-6:** A controller test without a database checks that a blank or 65-character key returns 400 `INVALID_IDEMPOTENCY_KEY` without calling the create logic, and that a 64-character key is accepted. This criterion is only header validation, so a real database isn't needed.
+- **Cleanup:** I created no resources myself, so `.check.resources` stays empty. The test framework removed the Postgres container itself; its cleanup helper container was still running briefly afterwards and exits on its own.

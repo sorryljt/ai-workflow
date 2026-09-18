@@ -117,6 +117,30 @@ case "$WF" in "$PWD"/*) WF_REL="${WF#"$PWD"/}";; esac
 if [[ -z "$WF_REL" ]]; then WF_REL="$WF"; echo "警告：无法算出工作流目录的相对路径，提示词里用绝对路径 ${WF}；knowledge.sh 的放行规则需按这个路径补一条" >&2; fi
 PROMPT="$(sed -e "s#{{RUN_ID}}#$RUN_ID#g" -e "s#{{PREV_TREE}}#$PREV_TREE#g" -e "s#{{CHANGES_DIR}}#$DIR#g" -e "s#{{TIER}}#$TIER#g" -e "s#{{DIFF_BASE}}#$BASE#g" -e "s#{{MAIN_BRANCH}}#$MAIN#g" -e "s#{{WORKFLOW_DIR}}#$WF_REL#g" "$PROMPT_TPL")"
 PROMPT="${PROMPT//\{\{CHECKS\}\}/$CHECKS}"
+# 与审查者使用同一范围；NUL 分隔兼容空格路径，删除测试不能充当回归测试。
+if [[ "$ROLE" == review ]]; then
+  REVIEW_BASE="$BASE"
+  [[ "$PREV_TREE" != 无 ]] && REVIEW_BASE="$PREV_TREE"
+  CHANGED_FILES="$(mktemp)" || exit 2
+  git diff --name-status -z --no-renames --diff-filter=ACMTD "$REVIEW_BASE" -- . ':!docs/changes' ':!docs/knowledge' > "$CHANGED_FILES" || { rm -f "$CHANGED_FILES"; exit 2; }
+  HAS_SOURCE=0; HAS_TEST=0
+  while IFS= read -r -d '' status && IFS= read -r -d '' file; do
+    # 目录名只能辅助分类，README、快照和 fixture 数据不是可执行测试。
+    case "$file" in
+      *.java|*.kt|*.kts|*.groovy|*.js|*.jsx|*.ts|*.tsx|*.mjs|*.cjs|*.vue|*.svelte|*.py|*.go|*.rs|*.rb|*.php|*.cs|*.c|*.h|*.cpp|*.cc|*.hpp|*.swift|*.scala|*.sh) ;;
+      *) continue;;
+    esac
+    case "$file" in
+      */test/*|*/tests/*|test/*|tests/*|*/__tests__/*|__tests__/*|*.test.*|*.spec.*|*Test.java|*Tests.java|*IT.java|*Test.kt|*Tests.kt|*Test.groovy|*Spec.groovy|test_*.py|*/test_*.py|*_test.py|*_test.go|*_spec.rb)
+        [[ "$status" != D ]] && HAS_TEST=1;;
+      *) HAS_SOURCE=1;;
+    esac
+  done < "$CHANGED_FILES"
+  rm -f "$CHANGED_FILES"
+  if [[ "$HAS_SOURCE" -eq 1 && "$HAS_TEST" -eq 0 ]]; then
+    PROMPT="$PROMPT"$'\n\n注意：本次 diff 不含测试文件'
+  fi
+fi
 printf '%s\n' "$PROMPT" > "$DIR/.$ROLE.prompt.md"
 
 # 选择 CLI：主会话是谁就派谁，不做跨工具回退

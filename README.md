@@ -113,3 +113,5 @@ scripts/                       # install / upgrade / validate / viktor-spawn / k
 开发本仓库：`bash scripts/validate.sh`，`bash scripts/install.test.sh`，`bash scripts/spawn.test.sh`，`bash scripts/knowledge.test.sh`。
 
 设计文档：`docs/2026-09-15--v1-redesign.md`、`docs/2026-09-16--flow-and-independent-review.md`；审查记录：`docs/2026-09-15--v1-review.md`；验收记录：`docs/2026-09-16--demo-results.md`。
+
+审查验收覆盖是硬规则：源码改动没有新增或修改测试直接 BLOCKING，S 档同样需要回归测试；仅 plan.md 对相应 AC 明确写“替代验证”并说明理由才可免测。spawn 会把缺测试提示追加到审查提示词。

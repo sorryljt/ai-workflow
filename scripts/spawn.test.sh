@@ -296,4 +296,45 @@ PATH="$T/bin:/usr/bin:/bin" VIKTOR_WORKFLOW_DIR="$T/proj/.workflow/fe-ai-workflo
 grep -q 'bash \.workflow/fe-ai-workflow/scripts/knowledge\.sh lookup' "$D/.review.prompt.md" || fail "提示词里的 knowledge.sh 路径应以 .workflow/ 开头"
 grep -qF "$T/proj/.workflow" "$D/.review.prompt.md" && fail "提示词里不应出现工作流的绝对路径" || true
 rm -rf "$T/proj/.workflow"
+# 10. 无测试提示基于实际审查范围，包含未跟踪文件；仅新增/修改测试才能免提示。
+mkfake claude "writeres review pass"
+warning='注意：本次 diff 不含测试文件'
+coverage_base="$("$SPAWN" snapshot)"
+printf 'base_tree: %s\ntier: S\n' "$coverage_base" > "$D/plan.md"
+rm -f "$D/.review.tree"
+mkdir -p src/main/java src/test/java
+printf 'class Order {}\n' > src/main/java/Order.java
+run review "$D" --agent claude >/dev/null
+grep -qx "$warning" "$D/.review.prompt.md" || fail "S 档未跟踪源码缺测试应提示"
+grep -qx "$warning" "$T/args.claude" || fail "提示必须传给审查进程"
+# 复审基线之后只改文档，不重复提示上一轮源码。
+printf 'notes\n' > notes.md
+run review "$D" --agent claude >/dev/null
+! grep -qx "$warning" "$D/.review.prompt.md" || fail "纯文档复审不应提示"
+for testfile in src/test/java/OrderTest.java 'src/order.test.ts' 'src/order.spec.ts' 'test_order.py' 'order_test.go' 'scripts/order.test.sh'; do
+  rm -f "$D/.review.tree"
+  mkdir -p "$(dirname "$testfile")"
+  printf 'test\n' > "$testfile"
+  run review "$D" --agent claude >/dev/null
+  ! grep -qx "$warning" "$D/.review.prompt.md" || fail "新增测试应消除提示：$testfile"
+  git reset -q -- "$testfile"; rm "$testfile"
+done
+# 删除测试不算补测试。
+printf 'test\n' > src/test/java/OrderTest.java
+coverage_base="$("$SPAWN" snapshot)"
+printf 'base_tree: %s\ntier: S\n' "$coverage_base" > "$D/plan.md"
+rm src/test/java/OrderTest.java
+printf '// changed\n' >> src/main/java/Order.java
+rm -f "$D/.review.tree"
+run review "$D" --agent claude >/dev/null
+grep -qx "$warning" "$D/.review.prompt.md" || fail "删除测试不能免除提示"
+# 测试目录的 README 不是测试；删除源码仍应提示缺测试。
+printf 'docs\n' > src/test/README.md
+rm -f "$D/.review.tree"
+run review "$D" --agent claude >/dev/null
+grep -qx "$warning" "$D/.review.prompt.md" || fail "测试目录文档不能充当测试"
+rm src/main/java/Order.java
+rm -f "$D/.review.tree"
+run review "$D" --agent claude >/dev/null
+grep -qx "$warning" "$D/.review.prompt.md" || fail "删除源码也应提示缺测试"
 echo PASS

@@ -15,8 +15,9 @@
 #   VIKTOR_CLAUDE_ARGS    传给 claude 的额外参数（默认 "--permission-mode acceptEdits"；按 shell 规则解析，含空格的参数请加引号）
 #                         未指定 --output-format 时追加 "--output-format stream-json --verbose"，.<role>.log 保留完整事件流
 #   注意：子进程不继承会话授权，检查命令需由 viktor-init 写入 .claude/settings.json 的 permissions.allow
-#   VIKTOR_CODEX_ARGS     传给 codex exec 的额外参数（默认 "--sandbox workspace-write"；项目需要更宽沙箱时在 AGENTS.md 写 `- 子进程参数：codex --sandbox <值>`）
-#   两者含 --dangerously-skip-permissions / bypassPermissions / danger-full-access / --dangerously-bypass-approvals-and-sandbox 时拒绝派单（退出码 2）
+#   VIKTOR_CODEX_ARGS     传给 codex exec 的额外参数（默认 "--sandbox workspace-write"；项目需要其他参数时在 AGENTS.md 项目信息节写 `- 子进程参数：codex <参数>`，
+#                         例如 JVM 项目 `- 子进程参数：codex --sandbox workspace-write -c sandbox_workspace_write.network_access=true`；没写 --sandbox 时补上默认沙箱）
+#   两者含 --dangerously-*（跳过权限 / 沙箱）/ bypassPermissions / danger-full-access 时拒绝派单（退出码 2）
 #   VIKTOR_SPAWN_TIMEOUT  秒，默认 480
 #   VIKTOR_WORKFLOW_DIR   工作流仓库目录（默认取本脚本所在仓库），用于定位 prompts/
 set -uo pipefail
@@ -135,13 +136,15 @@ if ! command -v "$AGENT" >/dev/null 2>&1; then
   echo "指定的工具 ${AGENT}（${WHY}）不在 PATH 中，不回退到其他工具。手动方式：把 $DIR/.$ROLE.prompt.md 作为新窗口的第一条消息发送" >&2
   exit 3
 fi
-# 子进程参数：环境变量 > AGENTS.md 项目信息节的 `- 子进程参数：codex --sandbox <值>`（仅 codex）> 默认
+# 子进程参数：环境变量 > AGENTS.md 项目信息节的 `- 子进程参数：codex <参数>`（仅 codex）> 默认
+# 这一行来自仓库文件，会经 eval 切分：只允许字母数字和 _ . = : / , @ + - 与空格（不含引号、$、反引号、通配符），按空白切分；没写 --sandbox / -s 时补默认沙箱
 PROJ_CODEX_ARGS=""
 if [[ -f AGENTS.md ]]; then
   PROJ_CODEX_ARGS="$(sed -n 's/^- 子进程参数：[[:space:]]*codex[[:space:]][[:space:]]*//p' AGENTS.md | head -1 | tr -d '\r' | sed 's/[[:space:]]*$//')"
-  if [[ -n "$PROJ_CODEX_ARGS" && ! "$PROJ_CODEX_ARGS" =~ ^--sandbox[[:space:]]+[a-z-]+$ ]]; then
-    echo "AGENTS.md 的“子进程参数”只支持 'codex --sandbox <值>'，实际为：${PROJ_CODEX_ARGS}" >&2; exit 2
+  if [[ -n "$PROJ_CODEX_ARGS" && ! "$PROJ_CODEX_ARGS" =~ ^[A-Za-z0-9_.=:/,@+\ -]+$ ]]; then
+    echo "AGENTS.md 的“子进程参数”只能包含字母、数字、空格和 _ . = : / , @ + -（不支持引号和 shell 语法），实际为：${PROJ_CODEX_ARGS}" >&2; exit 2
   fi
+  if [[ -n "$PROJ_CODEX_ARGS" && ! " $PROJ_CODEX_ARGS" =~ [[:space:]](--sandbox|-s)([[:space:]=]|$) ]]; then PROJ_CODEX_ARGS="--sandbox workspace-write $PROJ_CODEX_ARGS"; fi
 fi
 case "$AGENT" in
   claude) ARGS_SRC="VIKTOR_CLAUDE_ARGS"; ARGS="${VIKTOR_CLAUDE_ARGS:---permission-mode acceptEdits}";;
@@ -152,8 +155,8 @@ case "$AGENT" in
 esac
 # 子进程不得提权：跳过权限检查、全权限沙箱一律拒绝，不派单
 case "$ARGS" in
-  *danger-full-access*|*dangerously-bypass-approvals-and-sandbox*|*dangerously-skip-permissions*|*bypassPermissions*)
-    echo "拒绝派单：${ARGS_SRC} 含提权参数（${ARGS}）。子进程只能在项目放行的权限内运行：命令被拦就运行 /viktor-init 补齐放行规则；Codex 需要更宽的沙箱时，在 AGENTS.md 项目信息节写一行 '- 子进程参数：codex --sandbox <值>'（danger-full-access 同样拒绝）" >&2
+  *danger-full-access*|*--dangerously-*|*dangerously-skip-permissions*|*bypassPermissions*)
+    echo "拒绝派单：${ARGS_SRC} 含提权参数（${ARGS}）。子进程只能在项目放行的权限内运行：命令被拦就运行 /viktor-init 补齐放行规则；Codex 需要更宽的沙箱时，在 AGENTS.md 项目信息节写一行 '- 子进程参数：codex <参数>'（JVM 项目：--sandbox workspace-write -c sandbox_workspace_write.network_access=true；danger-full-access 同样拒绝）" >&2
     exit 2;;
 esac
 echo "独立 ${ROLE}：使用 ${AGENT}（${WHY}）"

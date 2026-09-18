@@ -271,6 +271,23 @@ cp "$T/agents.bak" "$T/proj/AGENTS.md"; printf -- '- 子进程参数：codex --s
 set +e; run review "$D" --agent codex >/dev/null 2>"$T/err"; rc=$?; set -e
 [[ $rc -eq 2 && ! -f "$T/args.codex" ]] && grep -q "拒绝派单" "$T/err" || fail "项目级 danger-full-access 应拒绝派单（rc=${rc}）"
 cp "$T/agents.bak" "$T/proj/AGENTS.md"
+# 8b. 项目级完整参数串（JVM 项目的 network_access）原样切分后传给 codex；没写 --sandbox 时补默认沙箱；
+#     -c 形式的 danger-full-access、--dangerously-* 同样拒绝；含 shell 语法的值拒绝且不执行
+printf -- '- 子进程参数：codex --sandbox workspace-write -c sandbox_workspace_write.network_access=true\n' >> "$T/proj/AGENTS.md"; rm -f "$T/args.codex"
+run review "$D" --agent codex >/dev/null || fail "项目级完整参数串应可派单"
+grep -qx "workspace-write" "$T/args.codex" && grep -qx -- "-c" "$T/args.codex" && grep -qx "sandbox_workspace_write.network_access=true" "$T/args.codex" || fail "network_access 参数未传给 codex"
+cp "$T/agents.bak" "$T/proj/AGENTS.md"; printf -- '- 子进程参数：codex -c sandbox_workspace_write.network_access=true\n' >> "$T/proj/AGENTS.md"; rm -f "$T/args.codex"
+run review "$D" --agent codex >/dev/null || fail "只写 -c 的参数串应可派单"
+grep -qx -- "--sandbox" "$T/args.codex" && grep -qx "workspace-write" "$T/args.codex" && grep -qx "sandbox_workspace_write.network_access=true" "$T/args.codex" || fail "没写 --sandbox 时应补默认沙箱并保留 -c 参数"
+for a in '-c sandbox_mode=danger-full-access' '--sandbox workspace-write --dangerously-bypass-hook-trust'; do
+  cp "$T/agents.bak" "$T/proj/AGENTS.md"; printf -- '- 子进程参数：codex %s\n' "$a" >> "$T/proj/AGENTS.md"; rm -f "$T/args.codex"
+  set +e; run review "$D" --agent codex >/dev/null 2>"$T/err"; rc=$?; set -e
+  [[ $rc -eq 2 && ! -f "$T/args.codex" ]] && grep -q "拒绝派单" "$T/err" || fail "项目级提权参数应拒绝派单：${a}（rc=${rc}）"
+done
+cp "$T/agents.bak" "$T/proj/AGENTS.md"; printf -- '- 子进程参数：codex --sandbox workspace-write $(touch %s/pwned)\n' "$T" >> "$T/proj/AGENTS.md"; rm -f "$T/args.codex"
+set +e; run review "$D" --agent codex >/dev/null 2>"$T/err"; rc=$?; set -e
+[[ $rc -eq 2 && ! -f "$T/args.codex" && ! -f "$T/pwned" ]] || fail "含 shell 语法的子进程参数应拒绝且不执行（rc=${rc}）"
+cp "$T/agents.bak" "$T/proj/AGENTS.md"
 
 # 9. 提示词里的 knowledge.sh 用相对项目根目录的路径（和 init 写的放行规则一致），不出现绝对路径
 mkdir -p "$T/proj/.workflow"; ln -s "$ROOT" "$T/proj/.workflow/fe-ai-workflow"

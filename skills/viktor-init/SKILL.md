@@ -69,10 +69,13 @@ description: 首次接入 viktor 工作流时初始化项目：探测技术栈�
 ```
 ━━ ✔ INIT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 技术栈    <框架 / 测试框架 / 包管理器>
-检查命令  typecheck ✅ lint ✅ test ✅ e2e — dev ✅（已放行 <n> 条）
+检查命令  typecheck ✅ lint ✅ test ✅ verify 未验证 e2e — dev ✅
+放行      <n> 条
 产物      AGENTS.md 项目信息 · docs/knowledge/ · .claude/settings.json
 下一步    /viktor-flow <需求>
 ```
+
+"检查命令"一行每个键后只允许 `✅`（已验证）、`—`（项目没有）、`未验证` 三种标记，不加括号说明；原因写在 AGENTS.md 的"命令验证"行里。
 
 ## 重复执行
 

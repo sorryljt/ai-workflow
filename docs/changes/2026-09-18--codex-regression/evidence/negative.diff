@@ -1,0 +1,13 @@
+diff --git a/core/src/main/java/com/example/demo/core/OrderAmountCalculator.java b/core/src/main/java/com/example/demo/core/OrderAmountCalculator.java
+index 1fa1cf2..adcd12b 100644
+--- a/core/src/main/java/com/example/demo/core/OrderAmountCalculator.java
++++ b/core/src/main/java/com/example/demo/core/OrderAmountCalculator.java
+@@ -21,7 +21,7 @@ public final class OrderAmountCalculator {
+             throw new IllegalArgumentException("unitPrice 和 discountRate 不能为空");
+         }
+         if (unitPrice.signum() < 0) {
+-            throw new IllegalArgumentException("unitPrice 必须大于等于 0");
++            throw new IllegalArgumentException("unitPrice 不能为负数");
+         }
+         if (quantity <= 0) {
+             throw new IllegalArgumentException("quantity 必须在 1 到 999 之间");

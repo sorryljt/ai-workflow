@@ -1,0 +1,47 @@
+✅ 存在 skills/viktor-flow/SKILL.md
+✅   name 正确
+✅   description 非空且 ≤1024 字
+✅   入口片段提及该节点
+✅ 存在 skills/viktor-init/SKILL.md
+✅   name 正确
+✅   description 非空且 ≤1024 字
+✅   入口片段提及该节点
+✅ 存在 skills/viktor-plan/SKILL.md
+✅   name 正确
+✅   description 非空且 ≤1024 字
+✅   入口片段提及该节点
+✅ 存在 skills/viktor-code/SKILL.md
+✅   name 正确
+✅   description 非空且 ≤1024 字
+✅   入口片段提及该节点
+✅ 存在 skills/viktor-review/SKILL.md
+✅   name 正确
+✅   description 非空且 ≤1024 字
+✅   入口片段提及该节点
+✅ 存在 skills/viktor-check/SKILL.md
+✅   name 正确
+✅   description 非空且 ≤1024 字
+✅   入口片段提及该节点
+✅ 存在 skills/viktor-ship/SKILL.md
+✅   name 正确
+✅   description 非空且 ≤1024 字
+✅   入口片段提及该节点
+✅ hook 脚本可执行
+✅ prompts/review.md 存在且含变量
+✅ prompts/check.md 存在且含变量
+✅ prompts/review.md 接收运行配置 {{CHECKS}}
+✅ prompts/check.md 接收运行配置 {{CHECKS}}
+✅ check.md 含五态与关键 AC 规则
+✅ 续接：flow 对 verified.inputs，check 写入
+✅ viktor-plan 处理未初始化的运行配置
+✅ viktor-code 处理未初始化的运行配置
+✅ viktor-review 处理未初始化的运行配置
+✅ viktor-check 处理未初始化的运行配置
+✅ init 有命令验证协议
+✅ viktor-spawn.sh 可执行
+✅ knowledge.sh 可执行
+✅ settings 片段引用 hook
+✅ 入口片段（含卡片模板）≤110 行
+✅ skills/templates/hooks/README 无 v0 术语残留
+----
+45 通过 / 0 失败

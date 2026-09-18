@@ -19,6 +19,19 @@
 - spawn：子进程在独立进程组中运行，超时整组终止，正常结束后同组残留进程也收尾；check 登记的容器 / 目录按 run_id 归属、pid 按进程组归属，其余只报告；配置里没有任何一条非空的已支持命令时拒绝派单（退出码 2），子进程不自行探测；`inputs-digest` 找不到 `## 验收标准` 节直接报错。
 - 续接：未进入审查的需求（stage 为 plan / code）直接按表恢复，不比指纹；无 viktor-checks 块不再作为停下的条件。
 
+### Fixed（两轮后端真实模型验证后，见 docs/2026-09-18--validation-fixes.md）
+
+- spawn 拒绝子进程提权：`VIKTOR_CLAUDE_ARGS` 含 `--dangerously-skip-permissions` / `bypassPermissions`、`VIKTOR_CODEX_ARGS` 含 `danger-full-access` / `--dangerously-bypass-approvals-and-sandbox` 时退出 2、不派单；Codex 需要更宽沙箱时只从 AGENTS.md 项目信息节的 `- 子进程参数：codex --sandbox <值>` 读取（同样拒绝 `danger-full-access`）。review / check 遇到退出码 2 不得改参数重跑。（F1）
+- 未信任工作区：子进程失败或报 error 且日志含 `has not been trusted` 时，spawn 退出 2 并提示先在项目目录交互式信任；README 接入步骤与 viktor-init 同步说明，上级目录的信任不传递到独立 git 仓库。（F2）
+- 子进程只执行本轮运行配置里的命令，认为命令有问题时报 `result: error`，不替换成 AGENTS.md / README 或自己推导的命令；spawn 对报告里引用的配置外构建命令给出警告（不拦）。（F3）
+- viktor-init 放行清单固定：检查命令原样 + 构建工具通配 + `knowledge.sh` + `dev` + 运行前提涉及 Docker 时的 `docker ps/rm/run/stop`；check 只在 AC 需要运行中的服务时才启动 dev。（F4）
+- 资源登记适配测试框架：子进程不自行创建容器，只登记直接创建的临时目录 / pid；Testcontainers 容器由 ryuk 回收，spawn 超时时兜底清理本轮新出现的 `org.testcontainers.sessionId` 容器。（F5）
+- viktor-check / viktor-review 给出 blocked / error 需要处理卡模板，不再各自发挥。（F6）
+- 交付报告的"待人工"只取 check.md 的 `pending`，条数与状态条一致；review 的 SUGGESTED 一律进剩余 SUGGESTED。（F7）
+- 预检列全 `typecheck` / `lint` / `test` / `verify` / `e2e` / `dev`，完整验收放 `verify`、`e2e` 只放端到端测试；写 plan.md 去掉模板行尾注释；init 节点卡"检查命令"只用 ✅ / — / 未验证。（F8）
+- L 档判据细化：给已有表加可空列、放宽或收紧请求校验边界按 M；影响已有数据可读性、需要迁移或改主键 / 唯一约束才算 L。（F9）
+- spawn 默认给 claude 子进程加 `--output-format stream-json --verbose`，`.review.log` / `.check.log` 保留完整事件流。（F10）
+
 ## [1.0.1] - 2026-09-18
 
 ### Fixed（独立 review 后）

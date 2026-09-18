@@ -43,7 +43,7 @@ AI 判档后输出一行声明，觉得不对直接说"按 L 走"。
 
 ### 独立审查与验收
 
-review / check 通过 `scripts/viktor-spawn.sh` 用 `claude -p` 或 `codex exec` 起新进程，同步等待，默认 480 秒超时。审查深度按档位限制，diff 超过 800 行不自动审。子进程不继承会话授权，`viktor-init` 会把检查命令写进 `.claude/settings.json` 的 `permissions.allow`。check 按每条 AC 选最小充分证据：涉及服务端数据、权限、契约、资金、幂等的 AC 默认关键，证据缺失就 `blocked`（退出码 4，不改代码，处理环境后重验）；非关键项测不到标 👀 待人工。没跑过 `/viktor-init` 的项目，plan 会先做一次不改配置的预检，命令以本轮配置传给子进程。
+review / check 通过 `scripts/viktor-spawn.sh` 用 `claude -p` 或 `codex exec` 起新进程，同步等待，默认 480 秒超时。审查深度按档位限制，diff 超过 800 行不自动审。子进程不继承会话授权，`viktor-init` 会把检查命令写进 `.claude/settings.json` 的 `permissions.allow`；这些规则只在已信任的工作区生效，未信任时 spawn 会直接提示先信任。check 按每条 AC 选最小充分证据：涉及服务端数据、权限、契约、资金、幂等的 AC 默认关键，证据缺失就 `blocked`（退出码 4，不改代码，处理环境后重验）；非关键项测不到标 👀 待人工。没跑过 `/viktor-init` 的项目，plan 会先做一次不改配置的预检，命令以本轮配置传给子进程。
 
 子进程不得提权：spawn 拒绝 `--dangerously-skip-permissions`、`bypassPermissions`、`danger-full-access` 等参数（退出码 2），主会话遇到权限问题只输出需要处理卡、不改参数重跑。Codex 下 JVM 项目的 Maven 在默认 `workspace-write` 沙箱里可能跑不起来，此时在 AGENTS.md 项目信息节写 `- 子进程参数：codex --sandbox <值>`（可行值待回归确认后补在这里）。
 

@@ -36,7 +36,7 @@ review：pass → 0 写 verified.review；blocked（有 BLOCKING）→ 1 修代�
 
 ## 4. 命令按用途区分
 
-`viktor-checks` 键：`typecheck` / `lint` / `test`（快速，hook 用）/ `verify`（完整验收，check 用，可选）/ `dev`、`e2e`（可选）。另加"运行前提"节：执行目录、环境入口与就绪条件、清理方式、时间预算；不记录密钥。
+`viktor-checks` 键：`typecheck` / `lint` / `test`（快速，hook 用）/ `verify`（完整验收，check 用，可选）/ `dev`、`e2e`（可选）。另加"运行前提"节：环境入口与就绪条件（工作目录固定为 AGENTS.md 所在目录，子模块写进命令）、清理方式、时间预算；不记录密钥。
 
 - hook 只跑 typecheck / lint / test。
 - review 重跑与改动相关的测试：优先项目已有的测试选择机制，按实际模块依赖确认范围；判断不了就全量；报告写选择依据与未覆盖范围。拿不到 hook 证据时补跑缺证据的 typecheck 与 lint，证据必须对应当前代码。
@@ -51,7 +51,7 @@ review：pass → 0 写 verified.review；blocked（有 BLOCKING）→ 1 修代�
 
 ## 6. init 与预检
 
-- init：模型推导命令（优先读 CI 配置、wrapper、README），实跑一次核对：test 看执行数 > 0、跳过数、目标模块；typecheck / lint 看退出码；verify 允许不跑。每条记录 `已验证` 或 `已发现未验证（原因）`。执行前确认目标为测试环境。不安装依赖、不启动服务、不改造命令。单仓库多模块在此识别执行目录。
+- init：模型推导命令（优先读 CI 配置、wrapper、README），实跑一次核对：test 看执行数 > 0、跳过数、目标模块；typecheck / lint 看退出码；verify 允许不跑。每条记录 `已验证` 或 `已发现未验证（原因）`。执行前确认目标为测试环境。不安装依赖、不启动服务、不改造命令。单仓库多模块在此把模块参数写进命令。
 - 预检（不修改项目配置）：节点发现无项目配置时，主会话推导本轮配置写入 plan.md 独立一节 `## 本轮运行配置`（命令、目录、前提、来源），不碰 AGENTS.md 与 settings.json，卡片备注建议 /viktor-init。
 - 派单前主会话解析本轮实际配置显式传给子进程（spawn 参数），子进程不自行读配置。
 - 优先级：项目配置是权威，出现即取代临时配置，记录差异并作废依赖旧配置的验收证据；只在新配置本身有执行歧义时提问。

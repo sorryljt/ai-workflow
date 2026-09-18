@@ -144,20 +144,33 @@ rm -rf nested; cd "$T/proj"
 # 6g. check blocked → 4；--checks 文件传入子进程；未初始化时提示词含"未找到检查命令"；超时清理按 run_id 登记的资源；进程组终止子孙进程
 mkfake claude "writeres check blocked"
 set +e; run check "$D" >/dev/null 2>"$T/err"; rc=$?; set -e; [[ $rc -eq 4 ]] && grep -q "阻塞" "$T/err" || fail "check blocked 应返回 4，实际 $rc"
-printf '```viktor-checks\ntest: npm test -- --run\n```\n### 运行前提\n- 执行目录：.\n' > "$T/checks.txt"
+printf '```viktor-checks\ntest: npm test -- --run\n```\n### 运行前提\n- 本地 Postgres 就绪\n' > "$T/checks.txt"
 mkfake claude "writeres check pass"
 run check "$D" --checks "$T/checks.txt" >/dev/null || fail "--checks 应可用"
-grep -q "npm test -- --run" "$D/.check.prompt.md" && grep -q "执行目录" "$D/.check.prompt.md" || fail "--checks 内容未传入提示词"
+grep -q "npm test -- --run" "$D/.check.prompt.md" && grep -q "本地 Postgres" "$D/.check.prompt.md" || fail "--checks 内容未传入提示词"
+# 只有说明文字 / 空块 / 只有注释值 的 --checks 都拒绝；只有 verify 也算有命令
+for bad in '### 运行前提\n- x\n' '```viktor-checks\n```\n' '```viktor-checks\ntest:\nfoo: bar\n```\n'; do
+  printf "$bad" > "$T/checks.txt"; rm -f "$D/.check.prompt.md"
+  set +e; run check "$D" --checks "$T/checks.txt" >/dev/null 2>"$T/err"; rc=$?; set -e
+  [[ $rc -eq 2 ]] && [[ ! -f "$D/.check.prompt.md" ]] || fail "无可用命令的 --checks 应退出 2 且不派单：$bad"
+done
+printf '```viktor-checks\nverify: mvn verify\n```\n' > "$T/checks.txt"; run check "$D" --checks "$T/checks.txt" >/dev/null || fail "只有 verify 应可派单"
 rm -f "$T/proj/AGENTS.md"; rm -f "$D/.check.prompt.md"
 set +e; run check "$D" >/dev/null 2>"$T/err"; rc=$?; set -e
-[[ $rc -eq 2 ]] && grep -q "未找到检查命令" "$T/err" && [[ ! -f "$D/.check.prompt.md" ]] || fail "无配置时应退出 2 且不派单，实际 $rc"
+[[ $rc -eq 2 ]] && grep -q "未找到可用的检查命令" "$T/err" && [[ ! -f "$D/.check.prompt.md" ]] || fail "无配置时应退出 2 且不派单，实际 $rc"
 # 运行前提两种写法都传入子进程；`### 运行前提` 是文件末节时最后一行不丢
 printf -- '- 主干分支：main\n- 运行前提：ONLY_TEST_DB\n\n```viktor-checks\ntest: npm test -- --run\n```\n' > "$T/proj/AGENTS.md"
 run check "$D" >/dev/null || fail "有块时应可派单"
 grep -q "ONLY_TEST_DB" "$D/.check.prompt.md" || fail "行式运行前提未传入提示词"
-printf -- '- 主干分支：main\n\n```viktor-checks\ntest: npm test -- --run\n```\n\n### 运行前提\n- 执行目录：server\n- ONLY_LAST_DB\n' > "$T/proj/AGENTS.md"
+printf -- '- 主干分支：main\n\n```viktor-checks\ntest: npm test -- --run\n```\n\n### 运行前提\n- 需要 docker\n- ONLY_LAST_DB\n' > "$T/proj/AGENTS.md"
 run check "$D" >/dev/null || fail "有块时应可派单"
-grep -q "ONLY_LAST_DB" "$D/.check.prompt.md" && grep -q "执行目录：server" "$D/.check.prompt.md" || fail "末节运行前提丢行"
+grep -q "ONLY_LAST_DB" "$D/.check.prompt.md" && grep -q "需要 docker" "$D/.check.prompt.md" || fail "末节运行前提丢行"
+# AGENTS.md 只有运行前提没有块 / 块为空 → 拒绝
+for bad in '### 运行前提\n- 需要 docker\n' '```viktor-checks\n```\n### 运行前提\n- x\n'; do
+  printf -- "$bad" > "$T/proj/AGENTS.md"; rm -f "$D/.check.prompt.md"
+  set +e; run check "$D" >/dev/null 2>"$T/err"; rc=$?; set -e
+  [[ $rc -eq 2 ]] && [[ ! -f "$D/.check.prompt.md" ]] || fail "AGENTS.md 无可用命令应退出 2：$bad"
+done
 printf -- '- 主干分支：main\n\n```viktor-checks\ntest: npm test -- --run\n```\n' > "$T/proj/AGENTS.md"
 # 正常结束：子进程登记的后台 pid 属于本轮进程组 → 被清理；不属于的只报告
 mkfake claude "d=\$VIKTOR_RESOURCES; (sleep 61.8; true) & echo pid:\$! >> \$d; echo pid:1 >> \$d; writeres check pass"

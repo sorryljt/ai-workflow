@@ -15,8 +15,8 @@
 - 续接顺序：先对 `verified.review` 的代码指纹，再对 `verified.inputs` 的验收输入摘要（`viktor-spawn.sh inputs-digest`），blocked / error 节点重跑；任何情况不绕过 review。
 - `viktor-init` 验证协议：命令逐条跑过才算"已验证"（test 看执行数 / 跳过数 / 目标模块），验证不了写原因、不换命令；记录运行前提。
 - 未初始化的项目：plan / code 做不修改项目配置的预检，写进 plan.md `## 本轮运行配置`，review / check 派单以 `--checks` 传给子进程；项目出现 `viktor-checks` 块后以项目为准。
-- 命令按用途分：`typecheck` / `lint` / `test` 是快速检查（hook 与 code 完成时执行），`verify` 是完整验收入口（只有 check 执行，可选），`dev` 是启动入口不等待退出；init 模板加 `### 运行前提` 节（执行目录、环境与就绪条件），spawn 连同块一起交给子进程。
-- spawn：子进程在独立进程组中运行，超时整组终止，正常结束后同组残留进程也收尾；check 登记的容器 / 目录按 run_id 归属、pid 按进程组归属，其余只报告；没有任何运行配置时拒绝派单（退出码 2），子进程不自行探测；`inputs-digest` 找不到 `## 验收标准` 节直接报错。
+- 命令按用途分：`typecheck` / `lint` / `test` 是快速检查（hook 与 code 完成时执行），`verify` 是完整验收入口（只有 check 执行，可选），`dev` 是启动入口不等待退出；init 模板加 `### 运行前提` 节（环境与就绪条件），spawn 连同块一起交给子进程；工作目录只有一种约定——AGENTS.md 所在目录，子模块写进命令本身。
+- spawn：子进程在独立进程组中运行，超时整组终止，正常结束后同组残留进程也收尾；check 登记的容器 / 目录按 run_id 归属、pid 按进程组归属，其余只报告；配置里没有任何一条非空的已支持命令时拒绝派单（退出码 2），子进程不自行探测；`inputs-digest` 找不到 `## 验收标准` 节直接报错。
 - 续接：未进入审查的需求（stage 为 plan / code）直接按表恢复，不比指纹；无 viktor-checks 块不再作为停下的条件。
 
 ## [1.0.1] - 2026-09-18

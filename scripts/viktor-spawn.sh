@@ -2,7 +2,7 @@
 # viktor-spawn.sh — 在独立进程中运行 review / check
 #
 # 用法：viktor-spawn.sh <review|check> <changes-dir> [--agent claude|codex] [--checks <file>] [--tier S|M|L] [--main <branch>] [--background]
-#   --checks 主会话解析出的本轮运行配置文件（viktor-checks 块 + 执行目录 + 运行前提），显式传给子进程；不传则读 AGENTS.md 的块与运行前提；两者都没有则退出 2，子进程不自行探测
+#   --checks 主会话解析出的本轮运行配置文件（viktor-checks 块 + 运行前提），显式传给子进程；不传则读 AGENTS.md 的块与运行前提；两者都没有则退出 2，子进程不自行探测
 #       viktor-spawn.sh snapshot                    输出当前工作区快照的 tree（含未提交与未跟踪文件，不动索引），供 plan.md 的 base_tree 使用
 #       viktor-spawn.sh fingerprint                 输出当前代码指纹（工作区快照 tree，排除 docs/changes 与 docs/knowledge），供 plan.md 的 verified 使用
 #       viktor-spawn.sh inputs-digest <changes-dir> 输出验收输入摘要（plan.md 的验收标准节 + 本轮运行配置 + 项目 viktor-checks 块的哈希），供 verified.inputs 使用
@@ -101,8 +101,9 @@ elif [[ -f AGENTS.md ]]; then
   PRE="$( { awk '/^#/{p=0} /^###[[:space:]]*运行前提/{p=1} p' AGENTS.md; grep -E '^[[:space:]]*-[[:space:]]*运行前提[：:]' AGENTS.md; } | tr -d '\r' | awk 'NF' | awk '!seen[$0]++')"
   [[ -n "$PRE" ]] && CHECKS="$CHECKS"$'\n'"$PRE"
 fi
-# 子进程不自行探测命令：没有配置就不派单，由主会话预检后以 --checks 传入
-[[ -n "${CHECKS:-}" ]] || { echo "未找到检查命令：AGENTS.md 没有 viktor-checks 块，且未传 --checks。主会话先做预检（写入 plan.md 的 '## 本轮运行配置'）再派单，或运行 /viktor-init。" >&2; exit 2; }
+# 子进程不自行探测命令：配置里至少要有一条已支持的键（typecheck/lint/test/verify/e2e/dev）且值非空，否则不派单，由主会话预检后以 --checks 传入
+has_cmd="$(printf '%s\n' "${CHECKS:-}" | sed -n '/^[[:space:]]*```viktor-checks[[:space:]]*$/,/^[[:space:]]*```[[:space:]]*$/p' | grep -E '^[[:space:]]*(typecheck|lint|test|verify|e2e|dev)[[:space:]]*:[[:space:]]*[^[:space:]#]' | head -1)"
+[[ -n "$has_cmd" ]] || { echo "未找到可用的检查命令：需要 viktor-checks 块里至少一条非空的 typecheck/lint/test/verify/e2e/dev。AGENTS.md 没有就由主会话预检（写入 plan.md 的 '## 本轮运行配置'）后以 --checks 传入，或运行 /viktor-init。" >&2; exit 2; }
 
 RUN_ID="$(date +%Y%m%d%H%M%S)-$$"
 PROMPT="$(sed -e "s#{{RUN_ID}}#$RUN_ID#g" -e "s#{{PREV_TREE}}#$PREV_TREE#g" -e "s#{{CHANGES_DIR}}#$DIR#g" -e "s#{{TIER}}#$TIER#g" -e "s#{{DIFF_BASE}}#$BASE#g" -e "s#{{MAIN_BRANCH}}#$MAIN#g" -e "s#{{WORKFLOW_DIR}}#$WF#g" "$PROMPT_TPL")"

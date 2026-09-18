@@ -10,7 +10,7 @@ description: 以测试驱动的方式实现需求或修复 bug，每一步都提
 - **M/L 档**：`docs/changes/<…>/plan.md`，要求 `status` 为 `confirmed` 或 `in-progress`。选择规则：只有一个 `in-progress` 的计划就用它；否则列出候选让用户选；没有已确认的计划则提示先使用 /viktor-plan。开始时把 `status` 改为 `in-progress`；`base_tree` 为空则写入 `bash <workflow-dir>/scripts/viktor-spawn.sh snapshot` 的输出（当前工作区快照，含未提交的改动；之后的审查只看此后的变化，前一个需求没提交也不会混进来）。
 - **S 档**：直接使用用户描述。开始前用一句话声明档位和要做的改动，并自动创建 `docs/changes/YYYY-MM-DD--<slug>/plan.md`（frontmatter：`status: in-progress`、`tier: S`、`stage: code`、`base_tree: <viktor-spawn.sh snapshot 的输出>`；正文只有问题描述和一节 `## 验收标准`（一条 AC；按 viktor-plan"写作要求"里的关键 AC 规则：默认关键的写一句"证据："，标题必须是 `## 验收标准`，续接时靠它算验收输入摘要），不需要用户确认。
 
-开始前用 `bash <workflow-dir>/scripts/knowledge.sh lookup <plan.md 影响范围里的路径>` 取相关知识（S 档用要改的文件路径）。检查命令以 AGENTS.md 的 `viktor-checks` 块为准。缺失时做**不修改项目配置的预检**：读 CI 配置、wrapper、README 推导本次可用的命令、执行目录和环境前提，写进 plan.md 的 `## 本轮运行配置` 节并注明来源；不写 AGENTS.md、不改 settings.json；卡片备注"未初始化，建议 /viktor-init"。
+开始前用 `bash <workflow-dir>/scripts/knowledge.sh lookup <plan.md 影响范围里的路径>` 取相关知识（S 档用要改的文件路径）。检查命令以 AGENTS.md 的 `viktor-checks` 块为准。缺失时做**不修改项目配置的预检**：读 CI 配置、wrapper、README 推导本次可用的命令（以 AGENTS.md 或仓库根目录为工作目录，子模块写进命令）和环境前提，写进 plan.md 的 `## 本轮运行配置` 节并注明来源；不写 AGENTS.md、不改 settings.json；卡片备注"未初始化，建议 /viktor-init"。
 
 ## 循环（每条任务或验收标准执行一次）
 

@@ -114,18 +114,29 @@ mkfake claude "rid=\$(sed -n 's/^run_id:[[:space:]]*\([^ ]*\).*/\1/p' $D/.review
 run review "$D" >/dev/null || fail "run_id 带行尾注释应能识别"
 git -C "$T/proj" reset -q 2>/dev/null || true
 
-# 6f. 事后审查无 base_tree：工作区脏 → 基线 HEAD；快照保留“已跟踪但被 gitignore”的文件；快照失败返回非零且无输出
-mkdir -p "$T/p6"; cd "$T/p6"; git init -q; git -c user.email=a@b -c user.name=t commit -q --allow-empty -m init; mkdir -p "$D"; printf -- '---\nstatus: in-progress\ntier: S\n---\n' > "$D/plan.md"
-printf 'a\n' > app.ts; git add -A; git -c user.email=a@b -c user.name=t commit -qm base; head=$(git rev-parse HEAD)
-printf 'b\n' > app.ts
+# 6f. 事后审查无 base_tree：基线 = 与主干的 merge-base（分支已提交 + 工作区改动都在内），创建 plan.md 不影响基线；
+#     快照保留"已跟踪但被 gitignore"的文件；产物未跟踪 / 已跟踪 / 已暂存都不影响指纹；快照失败返回非零且无输出
+mkdir -p "$T/p6"; cd "$T/p6"; git init -q -b main; git -c user.email=a@b -c user.name=t commit -q --allow-empty -m init
+printf 'a\n' > app.ts; git add -A; git -c user.email=a@b -c user.name=t commit -qm base; mb=$(git rev-parse HEAD)
+git checkout -q -b feat; printf 'b\n' > app.ts; git add -A; git -c user.email=a@b -c user.name=t commit -qm feat   # 功能已提交，工作区干净
+mkdir -p "$D"; printf -- '---\nstatus: in-progress\ntier: S\n---\n' > "$D/plan.md"                                    # 创建 plan 让工作区变脏
 mkfake claude "writeres review pass"
 run review "$D" >/dev/null || fail "事后审查应能运行"
-grep -q "git diff $head" "$D/.review.prompt.md" || fail "无 base_tree 且工作区脏时基线应为 HEAD"
-git checkout -q app.ts; git reset -q
+grep -q "git diff $mb" "$D/.review.prompt.md" || fail "无 base_tree 时基线应为与主干的 merge-base，不受 plan.md 影响"
+git diff "$mb" --stat -- . ':!docs/changes' | grep -q app.ts || fail "基线 diff 应含已提交的分支改动"
+# 指纹：产物三种状态都不影响
+f0="$("$SPAWN" fingerprint)"
+printf 'edit\n' >> "$D/plan.md"; [[ "$("$SPAWN" fingerprint)" == "$f0" ]] || fail "未跟踪产物修改不应影响指纹"
+git add "$D/plan.md";               [[ "$("$SPAWN" fingerprint)" == "$f0" ]] || fail "暂存产物不应影响指纹"
+git -c user.email=a@b -c user.name=t commit -qm plan
+printf 'edit2\n' >> "$D/plan.md";  [[ "$("$SPAWN" fingerprint)" == "$f0" ]] || fail "已跟踪产物修改不应影响指纹"
+git add "$D/plan.md";               [[ "$("$SPAWN" fingerprint)" == "$f0" ]] || fail "已跟踪产物暂存不应影响指纹"
+git reset -q
+# 已跟踪但被 gitignore 的文件
 printf 'fixture\n' > fx.txt; git add fx.txt; git -c user.email=a@b -c user.name=t commit -qm fx; printf 'fx.txt\n' > .gitignore
 f1="$("$SPAWN" fingerprint)"; printf 'changed\n' > fx.txt; f2="$("$SPAWN" fingerprint)"
 [[ "$f1" != "$f2" ]] || fail "已跟踪但被 gitignore 的文件修改后指纹应变化"
-mkdir nested && git -C nested init -q                       # 无提交的嵌套仓库会让 git add 失败
+mkdir nested && git -C nested init -q
 set +e; out="$("$SPAWN" fingerprint 2>/dev/null)"; rc=$?; set -e
 [[ $rc -ne 0 && -z "$out" ]] || fail "快照失败应返回非零且无输出，实际 rc=$rc out=$out"
 rm -rf nested; cd "$T/proj"

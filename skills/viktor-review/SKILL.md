@@ -14,7 +14,7 @@ description: 派发独立审查：在新进程中审查本次改动的 diff，�
 
 ## 步骤
 
-1. 确认审查范围非空：`git diff --stat <base_tree> -- . ':!docs/changes' ':!docs/knowledge'` 加未跟踪文件（base_tree 来自 plan.md。**没有就不要补拍**：事后发起的审查由 spawn 自动选基线——工作区有改动用 HEAD，干净用与主干的 merge-base）。工作区干净但分支上已有本需求的提交，同样要审；范围为空才说明并结束。
+1. 确认审查范围非空：`git diff --stat <base_tree> -- . ':!docs/changes' ':!docs/knowledge'` 加未跟踪文件（base_tree 来自 plan.md。**没有就不要补拍**：事后发起的审查由 spawn 自动以"分支相对主干"为基线，分支提交和工作区改动都在范围内；在主干上就是相对 HEAD）。工作区干净但分支上已有本需求的提交，同样要审；范围为空才说明并结束。
 2. diff 超过 800 行：不派单，输出需要处理卡建议分批（按任务提交一部分再审）。
 3. 派单：`bash <workflow-dir>/scripts/viktor-spawn.sh review <需求目录> --agent <claude|codex，你当前运行所在的工具>`（workflow-dir 通常为 `.workflow/fe-ai-workflow`）。子进程只用同一个工具，不跨工具。同步等待，退出码含义：
    - 0：通过。`stage: review`、`stage_result: ok`，并把 `bash <workflow-dir>/scripts/viktor-spawn.sh fingerprint` 的输出写入 `verified.review`（命令失败就不写，续接时会重新审）。

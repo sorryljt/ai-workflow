@@ -22,7 +22,7 @@ description: 把需求变成一份经用户确认的轻量计划（docs/changes/
 
 ## 步骤
 
-0. 项目没有 `viktor-checks` 块时做**不修改项目配置的预检**：从 CI 配置、wrapper、README 推导本次可用的命令（可推导的键列全：`typecheck` / `lint` / `test` / `verify` / `e2e` / `dev`（推导不出的省略）；完整验收命令（含集成测试、需要环境的）放 `verify`，`e2e` 只放端到端测试；以 AGENTS.md 或仓库根目录为工作目录，子模块写进命令）与环境前提，写进 plan.md 的 `## 本轮运行配置` 并注明来源；不写 AGENTS.md、不改 settings.json。待确认卡备注一行"未初始化，建议 /viktor-init"。项目已有块时省略此节。
+0. 项目没有 `viktor-checks` 块时做**不修改项目配置的预检**：从 CI 配置、wrapper、README 推导本次可用的命令（逐键核对推导来源：`typecheck` 来自 package.json 的 scripts.typecheck 或 CI 类型检查命令；`lint` 来自 scripts.lint 或 CI 静态检查命令；`test` 来自 scripts.test、Maven / Gradle wrapper 的单元测试任务；`verify` 来自 CI 完整验收任务、README 验收命令或 Maven verify；`e2e` 来自 scripts.e2e 或 Playwright / Cypress 的端到端测试任务；`dev` 来自 README 的启动命令、package.json 的 scripts.dev、已配置的 spring-boot:run / bootRun 等。示例只提示探测来源，不凭示例猜命令；能推导出的键一条都不能省，推导不出的键省略且注明。`dev` 是启动入口，预检时不启动服务；完整验收命令（含集成测试、需要环境的）放 `verify`，`e2e` 只放端到端测试；以 AGENTS.md 或仓库根目录为工作目录，子模块写进命令）与环境前提，写进 plan.md 的 `## 本轮运行配置` 并注明来源；不写 AGENTS.md、不改 settings.json。待确认卡备注一行"未初始化，建议 /viktor-init"。项目已有块时省略此节。
 
 1. **收集上下文**：读取 AGENTS.md 的项目信息；用 `bash <workflow-dir>/scripts/knowledge.sh lookup <可能涉及的文件路径> <需求关键词>` 取相关知识（不要直接读 `docs/knowledge/` 下的文件）。需要了解代码时直接读代码。
 2. **只问会改变方案的问题**：能从代码或上下文推断的，直接作为假设写进计划。确实需要用户决定的，一次性提出，最多 3 个。

@@ -24,6 +24,7 @@
 - review 验收覆盖是硬规则：源码改动没有新增或修改测试直接 BLOCKING（S 档也须回归测试）；仅 plan.md 对相应 AC 明确写“替代验证”并说明理由才可免测。
 - review 和 check 在独立进程中执行（`scripts/viktor-spawn.sh`），避免自己审自己。
 - 所有“已完成”“已通过”的说法，都要有本轮真实运行命令的输出作为依据。
+- 未初始化预检逐键核对 typecheck / lint / test / verify / e2e / dev 的来源；能推导出的键一条都不能省，推导不出的键省略且注明；dev 是启动入口，预检时不启动服务。
 - 检查命令记录在下方 `viktor-checks` 块中。Claude Code 中 Stop hook 会自动运行 typecheck / lint / test；其他工具中，结束前手动运行。
 - 除非用户要求，不自动 commit。
 

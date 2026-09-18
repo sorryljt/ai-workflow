@@ -219,6 +219,14 @@ set +e; run review "$D" >/dev/null 2>"$T/err"; rc=$?; set -e
 mkfake claude "echo '$TRUSTLINE' >&2; writeres review pass"
 run review "$D" >/dev/null 2>"$T/err" || fail "未信任但审查通过时不应改变结果"
 
+# 7c. 报告引用了运行配置之外的构建命令：只警告（stderr），不改变退出码；配置内的命令（含去掉参数的写法）不警告
+mkfake claude "writeres check pass '本轮执行 \`npm run e2e\`，全部通过'"
+run check "$D" >/dev/null 2>"$T/err" || fail "引用配置外命令时不应改变退出码"
+grep -q "运行配置之外" "$T/err" && grep -q "npm run e2e" "$T/err" || fail "引用配置外命令应在 stderr 警告"
+mkfake claude "writeres check pass '本轮执行 \`npm test -- --run 2>&1 | tail\` 与 \`npm test\`'"
+run check "$D" >/dev/null 2>"$T/err" || fail "配置内命令应通过"
+grep -q "运行配置之外" "$T/err" && fail "配置内命令不应警告" || true
+
 # 8. 子进程不得提权：两种工具的提权参数都拒绝派单（退出码 2、不调用 CLI）；项目级沙箱值只接受 --sandbox，且同样拒绝 danger-full-access
 mkfake claude "writeres review pass"; mkfake codex "writeres review pass"
 for a in '--dangerously-skip-permissions' '--permission-mode bypassPermissions'; do

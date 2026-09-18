@@ -227,6 +227,31 @@ verify() {  # verify <进程退出码>
   esac
 }
 
+warn_foreign_cmds() {  # 报告里引用了运行配置之外的构建命令：无法可靠判断，只警告不拦
+  [[ -f "$OUT" ]] || return 0
+  local allowed found cmd need have a w ok hit=""
+  allowed="$(printf '%s\n' "${CHECKS:-}" | sed -n '/^[[:space:]]*```viktor-checks[[:space:]]*$/,/^[[:space:]]*```[[:space:]]*$/p' | sed -n 's/^[[:space:]]*[a-z0-9_-]*[[:space:]]*:[[:space:]]*//p')"
+  found="$(awk 'NR==1&&/^---/{fm=1;next} fm&&/^---/{fm=0;next} !fm' "$OUT" | grep -o '`[^`]*`' | tr -d '`' \
+    | grep -E '^(\./mvnw|mvn|\./gradlew|gradle|npm|pnpm|yarn|npx|bun|go|cargo|pytest|make)( |$)' | sed 's/[[:space:]][0-9]*[<>].*$//; s/[|;&<>].*$//; s/[[:space:]]*$//' | sort -u)"
+  [[ -n "$found" ]] || return 0
+  set -f
+  while IFS= read -r cmd; do
+    [[ -z "$cmd" ]] && continue
+    need=""; for w in $cmd; do [[ "$w" == -* ]] || need+=" $w"; done
+    ok=0
+    while IFS= read -r a; do
+      [[ -z "$a" ]] && continue
+      have=" $a "; ok=1
+      for w in $need; do [[ "$have" == *" $w "* ]] || { ok=0; break; }; done
+      [[ $ok -eq 1 ]] && break
+    done <<< "$allowed"
+    [[ $ok -eq 1 ]] || hit+="  ${cmd}"$'\n'
+  done <<< "$found"
+  set +f
+  [[ -n "$hit" ]] && { echo "警告：${OUT} 引用了本轮运行配置之外的命令（子进程应只执行运行配置里的命令，请核对报告依据）："; printf '%s' "$hit"; }
+  return 0
+}
+
 # 未信任的工作区：Claude Code 忽略项目 .claude/settings.json 的 permissions.allow（日志里有 "has not been trusted"）
 untrusted() { grep -q "has not been trusted" "$LOG" 2>/dev/null; }
 TRUST_MSG="工作区未被 Claude Code 信任（未被信任时，子进程会忽略 .claude/settings.json 的放行规则）；请在项目目录（$(pwd)）交互式启动一次 claude 并选择信任，然后说「继续」。上级目录的信任不传递到独立 git 仓库"
@@ -235,6 +260,7 @@ if [[ $BG -eq 1 ]]; then
   ( run_with_timeout; rc=$?; cleanup_resources; reap_group
     if [[ $rc -eq 124 ]]; then vrc=2; else verify "$rc" >/dev/null 2>&1; vrc=$?; fi
     if { [[ $rc -ne 0 ]] || [[ $vrc -eq 2 ]]; } && untrusted; then vrc=2; echo "$TRUST_MSG" >> "$LOG"; fi
+    [[ $vrc -eq 2 ]] || warn_foreign_cmds >> "$LOG" 2>&1
     echo "$vrc" > "$DIR/.$ROLE.done" ) &
   echo "已在后台启动 ${ROLE}（${AGENT}），完成后 $DIR/.$ROLE.done 内为退出码"; exit 0
 fi
@@ -245,5 +271,6 @@ reap_group
 if [[ $rc -eq 124 ]]; then echo "${ROLE} 超时（${TIMEOUT}s），日志：${LOG}" >&2; untrusted && echo "$TRUST_MSG" >&2; exit 2; fi
 verify "$rc"; vrc=$?
 if { [[ $rc -ne 0 ]] || [[ $vrc -eq 2 ]]; } && untrusted; then echo "$TRUST_MSG" >&2; exit 2; fi
+[[ $vrc -eq 2 ]] || warn_foreign_cmds >&2
 if [[ "$ROLE" == review && $vrc -le 1 ]]; then t="$(snapshot_tree)" && printf '%s\n' "$t" > "$DIR/.review.tree" || echo "警告：本轮快照失败，未更新 .review.tree" >&2; fi
 exit $vrc

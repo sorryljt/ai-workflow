@@ -18,6 +18,7 @@ grep -q "^pending:" prompts/check.md && grep -q "blocked" prompts/check.md && gr
 grep -q "verified.inputs" skills/viktor-flow/SKILL.md && grep -q "inputs-digest" skills/viktor-check/SKILL.md && ok "续接：flow 对 verified.inputs，check 写入" || bad "续接缺 verified.inputs"
 for n in plan code review check; do grep -q "本轮运行配置\|--checks" skills/viktor-$n/SKILL.md && ok "viktor-$n 处理未初始化的运行配置" || bad "viktor-$n 未处理运行配置"; done
 grep -q "未验证" skills/viktor-init/SKILL.md && ok "init 有命令验证协议" || bad "init 缺验证协议"
+grep -q "不修改约定和禁区" skills/viktor-init/SKILL.md && ok "init 重复执行保留约定和禁区" || bad "init 缺用户内容保护规则"
 [[ -x scripts/viktor-spawn.sh ]] && ok "viktor-spawn.sh 可执行" || bad "viktor-spawn.sh 不可执行"
 [[ -x scripts/knowledge.sh ]] && ok "knowledge.sh 可执行" || bad "knowledge.sh 不可执行"
 grep -q viktor-gate.sh hooks/settings.snippet.json && ok "settings 片段引用 hook" || bad "settings 片段未引用 hook"

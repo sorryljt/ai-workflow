@@ -139,4 +139,41 @@ set +e; echo '{}' | gate "$T/gc/a" 2>/dev/null; rc=$?; set -e; [[ $rc -eq 2 ]] |
 mkdir -p "$T/p8/.claude"; echo '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"bash .claude/hooks/viktor-gate.sh"}]},{"hooks":[{"type":"command","command":"echo keep"}]}]}}' > "$T/p8/.claude/settings.json"
 "$INSTALL" "$ROOT" "$T/p8" >/dev/null
 [[ $(grep -c viktor-gate.sh "$T/p8/.claude/settings.json") -eq 1 ]] && grep -q CLAUDE_PROJECT_DIR "$T/p8/.claude/settings.json" && grep -q '"echo keep"' "$T/p8/.claude/settings.json" || fail "旧 hook 条目未被替换或其他条目丢失"
+# ── 9. upgrade.sh 执行途中被原地覆盖（同一个 inode）：旧写法（逐行读）会接着读新内容而出错或丢掉后半段，
+#       新写法（main 函数 + 最后一行调用并 exit）已整体读入，不受影响。注：git checkout 是先删后建，不会触发这个问题；
+#       这里由 vB 的 install.sh 桩原地改写 upgrade.sh 来模拟
+up_test(){ # up_test <目录> <vA 的 upgrade.sh 文件>；输出到 <目录>/out，返回 upgrade.sh 的退出码
+  local d="$1"; local up="$d/up" p="$d/proj"
+  mkdir -p "$up/scripts" "$p/.claude"; git -C "$up" init -q
+  printf '#!/usr/bin/env bash\necho install-stub\n' > "$up/scripts/install.sh"; chmod +x "$up/scripts/install.sh"
+  cp "$2" "$up/scripts/upgrade.sh"; chmod +x "$up/scripts/upgrade.sh"
+  git -C "$up" add -A; git -C "$up" -c user.email=a@b -c user.name=t commit -qm A; git -C "$up" tag vA
+  # vB 的 install.sh 把 upgrade.sh 原地改写成 300 行 "echo CORRUPTED; exit 7"：不管旧写法从哪个偏移接着读，都会读到它
+  printf '#!/usr/bin/env bash\necho install-stub\nfor i in $(seq 1 300); do echo "echo CORRUPTED; exit 7"; done > "$1/scripts/upgrade.sh"\n' > "$up/scripts/install.sh"
+  git -C "$up" add -A; git -C "$up" -c user.email=a@b -c user.name=t commit -qm B; git -C "$up" tag vB
+  git clone -q "$up" "$p/.workflow/fe-ai-workflow"; git -C "$p/.workflow/fe-ai-workflow" checkout -q vA
+  echo '{"permissions":{"allow":["Bash(npm test)"]}}' > "$p/.claude/settings.json"
+  (cd "$p" && .workflow/fe-ai-workflow/scripts/upgrade.sh vB > "$d/out" 2>&1)
+}
+cat > "$T/upgrade.old.sh" <<'OLD'
+#!/usr/bin/env bash
+# upgrade.sh — 在业务项目根目录执行：切换 submodule 到指定版本并重新安装
+# 用法：.workflow/fe-ai-workflow/scripts/upgrade.sh <version-tag> [--migrate]
+set -euo pipefail
+V="${1:-}"; [[ -n "$V" ]] || { echo "Usage: $0 <version-tag> [--migrate]" >&2; exit 1; }
+W=".workflow/fe-ai-workflow"; [[ -d "$W" ]] || { echo "未找到 $W" >&2; exit 1; }
+git -C "$W" fetch --tags && git -C "$W" checkout "$V"
+"$W/scripts/install.sh" "$W" . ${2:-}
+echo "已升级到 ${V}，请提交 $W 及安装产物"
+# 1.1.0 起 review / check 子进程要执行 knowledge.sh（以及 dev、docker 等），老项目 init 时没放行，升级后第一次派单就会报 error
+if ! grep -q 'scripts/knowledge\.sh' .claude/settings.json 2>/dev/null; then
+  echo "注意：本版本要求重跑 /viktor-init（重复执行模式）补齐放行规则——.claude/settings.json 里还没有 knowledge.sh 的放行，review / check 子进程会被权限拦下"
+fi
+OLD
+set +e; up_test "$T/u-old" "$T/upgrade.old.sh"; rc_old=$?; up_test "$T/u-new" "$ROOT/scripts/upgrade.sh"; rc_new=$?; set -e
+{ [[ $rc_old -ne 0 ]] || ! grep -q "重跑 /viktor-init" "$T/u-old/out"; } || fail "旧写法的 upgrade.sh 被原地覆盖后应出错或丢掉后半段（用例本身没能复现问题）"
+[[ $rc_new -eq 0 ]] && grep -q "install-stub" "$T/u-new/out" && grep -q "已升级到 vB" "$T/u-new/out" && grep -q "重跑 /viktor-init" "$T/u-new/out" \
+  || { cat "$T/u-new/out" >&2; fail "新写法的 upgrade.sh 执行中被原地覆盖后应正常完成并打印重跑 init 的提示（rc=${rc_new}）"; }
+[[ "$(git -C "$T/u-new/proj/.workflow/fe-ai-workflow" describe --tags)" == vB ]] || fail "升级后 submodule 应在 vB"
+
 echo "PASS"

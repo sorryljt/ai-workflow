@@ -210,6 +210,19 @@ cleanup_resources() {  # 只清理本轮创建的资源：container:<name> / dir
   [[ -n "$left" ]] && { echo "资源清理残留："; printf '%s' "$left"; } >&2
   return 0
 }
+# Testcontainers 兜底（仅超时时）：子进程不登记测试框架创建的容器，正常结束由 ryuk 回收；超时被整组终止时，
+# 本轮开始时不存在（即创建时间晚于本轮开始）的 org.testcontainers.sessionId 容器一律 rm -f，本轮之前已有的只报告
+tc_ids() { command -v docker >/dev/null 2>&1 && docker ps -aq --no-trunc --filter label=org.testcontainers.sessionId 2>/dev/null; return 0; }
+cleanup_testcontainers() {
+  command -v docker >/dev/null 2>&1 || return 0
+  local id left=""
+  for id in $(tc_ids); do
+    if printf '%s\n' "$TC_BEFORE" | grep -qxF -- "$id"; then left+="  未处理（本轮开始前已存在的 Testcontainers 容器）：${id:0:12}"$'\n'
+    else docker rm -f "$id" >/dev/null 2>&1 || left+="  Testcontainers 容器未清理：${id:0:12}"$'\n'; fi
+  done
+  [[ -n "$left" ]] && { echo "资源清理残留："; printf '%s' "$left"; } >&2
+  return 0
+}
 verify() {  # verify <进程退出码>
   local rc="$1"
   [[ -f "$OUT" ]] || { echo "${ROLE} 进程结束但未产出 ${OUT}（日志：${LOG}）" >&2; return 2; }
@@ -257,7 +270,8 @@ untrusted() { grep -q "has not been trusted" "$LOG" 2>/dev/null; }
 TRUST_MSG="工作区未被 Claude Code 信任（未被信任时，子进程会忽略 .claude/settings.json 的放行规则）；请在项目目录（$(pwd)）交互式启动一次 claude 并选择信任，然后说「继续」。上级目录的信任不传递到独立 git 仓库"
 
 if [[ $BG -eq 1 ]]; then
-  ( run_with_timeout; rc=$?; cleanup_resources; reap_group
+  TC_BEFORE="$(tc_ids)"
+  ( run_with_timeout; rc=$?; cleanup_resources; reap_group; [[ $rc -eq 124 ]] && cleanup_testcontainers >> "$LOG" 2>&1
     if [[ $rc -eq 124 ]]; then vrc=2; else verify "$rc" >/dev/null 2>&1; vrc=$?; fi
     if { [[ $rc -ne 0 ]] || [[ $vrc -eq 2 ]]; } && untrusted; then vrc=2; echo "$TRUST_MSG" >> "$LOG"; fi
     [[ $vrc -eq 2 ]] || warn_foreign_cmds >> "$LOG" 2>&1
@@ -265,9 +279,11 @@ if [[ $BG -eq 1 ]]; then
   echo "已在后台启动 ${ROLE}（${AGENT}），完成后 $DIR/.$ROLE.done 内为退出码"; exit 0
 fi
 
+TC_BEFORE="$(tc_ids)"
 run_with_timeout; rc=$?
 cleanup_resources
 reap_group
+[[ $rc -eq 124 ]] && cleanup_testcontainers
 if [[ $rc -eq 124 ]]; then echo "${ROLE} 超时（${TIMEOUT}s），日志：${LOG}" >&2; untrusted && echo "$TRUST_MSG" >&2; exit 2; fi
 verify "$rc"; vrc=$?
 if { [[ $rc -ne 0 ]] || [[ $vrc -eq 2 ]]; } && untrusted; then echo "$TRUST_MSG" >&2; exit 2; fi

@@ -59,7 +59,8 @@ review：pass → 0 写 verified.review；blocked（有 BLOCKING）→ 1 修代�
 ## 7. 资源与进程
 
 - spawn 起独立进程组：有 perl 用 `setpgrp`，否则按进程树递归终止。正常、失败、超时都执行清理。
-- 子进程以本轮 run_id 命名所创建的资源并**创建即登记**到 `.check.resources`（只存标识）。清理只处理能按 run_id 识别的资源，其余只报告；对已有服务只断开本轮连接。
+- 子进程**不自行创建容器**来验证；只登记自己直接创建的资源（临时目录、后台 dev 的 pid），以本轮 run_id 命名并**创建即登记**到 `.check.resources`（只存标识）。清理只处理能按 run_id / 进程组识别的资源，其余只报告；对已有服务只断开本轮连接。
+- 测试框架内部创建的容器（Testcontainers）由框架自己回收（ryuk），子进程在 check.md 说明即可。spawn 超时兜底：有 docker 时，带 `org.testcontainers.sessionId` 标签、且本轮开始时还不存在的容器一律 `rm -f`，本轮之前已有的只报告。（2026-09-18 验证修复 F5）
 
 ## 8. 提示词中立化与后端附加项
 

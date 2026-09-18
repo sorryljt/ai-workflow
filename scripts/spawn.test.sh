@@ -227,6 +227,26 @@ mkfake claude "writeres check pass '本轮执行 \`npm test -- --run 2>&1 | tail
 run check "$D" >/dev/null 2>"$T/err" || fail "配置内命令应通过"
 grep -q "运行配置之外" "$T/err" && fail "配置内命令不应警告" || true
 
+# 7d. 超时兜底清理 Testcontainers：本轮开始后出现的带标签容器被 rm -f，之前已有的只报告；正常结束不动
+cat > "$T/bin/docker" <<F
+#!/usr/bin/env bash
+case "\$1" in
+  ps) cat "$T/tc.ids" 2>/dev/null;;
+  rm) shift; [[ "\$1" == -f ]] && shift; printf '%s\n' "\$@" >> "$T/tc.rm";;
+esac
+F
+chmod +x "$T/bin/docker"; printf 'tcold1\n' > "$T/tc.ids"; rm -f "$T/tc.rm"
+mkfake claude "echo tcnew1 >> $T/tc.ids; sleep 61.6"
+set +e; VIKTOR_SPAWN_TIMEOUT=2 run check "$D" >/dev/null 2>"$T/err"; rc=$?; set -e
+[[ $rc -eq 2 ]] || fail "超时应返回 2，实际 ${rc}"
+grep -qx tcnew1 "$T/tc.rm" && ! grep -qx tcold1 "$T/tc.rm" || fail "应只清理本轮新出现的 Testcontainers 容器"
+grep -q "本轮开始前已存在" "$T/err" || fail "本轮之前的 Testcontainers 容器应只报告"
+printf 'tcold1\n' > "$T/tc.ids"; rm -f "$T/tc.rm"
+mkfake claude "echo tcnew2 >> $T/tc.ids; writeres check pass"
+run check "$D" >/dev/null 2>&1 || fail "正常结束应返回 0"
+[[ ! -f "$T/tc.rm" ]] || fail "正常结束不应清理 Testcontainers 容器（由 ryuk 回收）"
+rm -f "$T/bin/docker" "$T/tc.ids" "$T/tc.rm"
+
 # 8. 子进程不得提权：两种工具的提权参数都拒绝派单（退出码 2、不调用 CLI）；项目级沙箱值只接受 --sandbox，且同样拒绝 danger-full-access
 mkfake claude "writeres review pass"; mkfake codex "writeres review pass"
 for a in '--dangerously-skip-permissions' '--permission-mode bypassPermissions'; do

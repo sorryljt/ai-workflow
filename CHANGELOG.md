@@ -5,6 +5,15 @@
 
 ---
 
+## [1.2.0] - 2026-09-21
+
+### Changed
+
+- **仓库改名 ai-workflow**（工作流早已前后端通用）。安装目录改为 `.workflow/ai-workflow`，注入标记改为 `<!-- ai-workflow-start/end -->`，来源变量改为 `AI_WORKFLOW_REPO`。GitHub 仓库地址随之改为 `sorryljt/ai-workflow`。
+- 去掉所有老项目兼容逻辑（工作流尚未推广，所有安装都是首装）：submodule 转换、旧目录 / 旧标记迁移、`upgrade.sh`、`install.sh --migrate`、`knowledge.sh migrate`、plan.md 的 `base_sha` 回退。
+- README 只写面向用户的内容；门禁、独立审查与验收、硬规则、验证记录移到 `docs/design.md`；维护者约束写进元仓库 AGENTS.md。
+- Windows（Git Bash）逻辑兼容：`.gitattributes` 固定 `.sh` 为 LF（安装到项目的 hooks 目录也带一份）；读 plan.md / 报告先去 CRLF；哈希在 shasum / sha1sum / openssl 间回退；perl 无 setpgrp 时不再中断子进程；kill_tree 无 pgrep 时解析 ps，有 taskkill 时整树终止；信任检测补 `cygpath -w` 形式的路径；脚本一律以 `bash <path>` 调用不依赖可执行位。未在 Windows 上实测。
+
 ## [1.1.3] - 2026-09-21
 
 ### Changed

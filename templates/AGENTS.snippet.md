@@ -1,4 +1,4 @@
-## fe-ai-workflow（viktor）
+## ai-workflow（viktor）
 
 本项目使用 viktor AI 开发工作流。技能：viktor-flow（自动流水线 / 续接），以及可单独调用的 viktor-init、viktor-plan、viktor-code、viktor-review、viktor-check、viktor-ship。
 
@@ -19,7 +19,7 @@
 ### 约定
 
 - 需求产物放在 `docs/changes/YYYY-MM-DD--<slug>/`（slug 用英文 kebab-case）：plan.md、review.md、check.md、report.md。plan.md frontmatter 的 `status` / `stage` / `stage_result` 是需求状态的唯一来源；每个节点只从磁盘取输入，人随时可以停、插话、手工修改，之后用 viktor-flow 续接。
-- Agent 能直接读代码，所以不维护组件清单、接口清单；`docs/knowledge/` 只放代码里读不出来的知识（decisions / pitfalls / glossary，一条一个文件）。取知识只用 `bash .workflow/fe-ai-workflow/scripts/knowledge.sh lookup <路径或关键词>`，不要整目录读。
+- Agent 能直接读代码，所以不维护组件清单、接口清单；`docs/knowledge/` 只放代码里读不出来的知识（decisions / pitfalls / glossary，一条一个文件）。取知识只用 `bash .workflow/ai-workflow/scripts/knowledge.sh lookup <路径或关键词>`，不要整目录读。
 - M/L 档：plan 经用户确认之前，不写实现代码。
 - review 验收覆盖是硬规则：源码改动没有新增或修改测试直接 BLOCKING（S 档也须回归测试）；仅 plan.md 对相应 AC 明确写“替代验证”并说明理由才可免测。
 - Codex + JVM + Docker 的 init 同步写入已探测的 Docker endpoint、Ryuk 禁用环境与沙箱参数；记录验证结果和禁用 Ryuk 的回收前提。

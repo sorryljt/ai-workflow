@@ -22,6 +22,8 @@ grep -q "不修改约定和禁区" skills/viktor-init/SKILL.md && ok "init 重�
 latest=$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | tr -d '#[] ')
 if [[ -n "$latest" ]]; then git rev-parse -q --verify "refs/tags/v$latest" >/dev/null 2>&1 && ok "CHANGELOG 最新版本 $latest 已打 tag" || echo "⚠️  CHANGELOG 最新版本 $latest 还没有 tag v$latest：发布流程未走完（见 AGENTS.md 的\"发布\"）"; fi
 awk '/^## \[Unreleased\]/{p=1;next} /^## /{p=0} p' CHANGELOG.md | grep -q '^- ' && echo "⚠️  CHANGELOG 有 Unreleased 条目：合到 main 后记得定版并打 tag" || true
+res=$(grep -rn "fe-ai-workflow" skills templates hooks prompts bootstrap.sh scripts/install.sh scripts/viktor-spawn.sh scripts/knowledge.sh scripts/upgrade.sh README.md 2>/dev/null | grep -v "OLD_W\|OLD_START\|OLD_END\|FE_AI_WORKFLOW_REPO" || true)
+[[ -z "$res" ]] && ok "无旧名残留（fe-ai-workflow）" || { bad "旧名残留："; echo "$res"; }
 [[ -x bootstrap.sh ]] && bash -n bootstrap.sh && ok "bootstrap.sh 可执行且语法正确" || bad "bootstrap.sh 缺失或语法错误"
 [[ -x scripts/viktor-spawn.sh ]] && ok "viktor-spawn.sh 可执行" || bad "viktor-spawn.sh 不可执行"
 [[ -x scripts/knowledge.sh ]] && ok "knowledge.sh 可执行" || bad "knowledge.sh 不可执行"

@@ -37,25 +37,4 @@ rm src/App.tsx; "$KS" rebuild >/dev/null
 grep -q "^pitfall | ?active | 输入框不能加 maxLength" docs/knowledge/index.md || fail "路径消失未标 ?"
 lk src/App.tsx | grep -q "maxLength" || fail "?active 应仍可检索"
 
-# 5. migrate：旧三文件拆分
-mkdir -p "$T/m/docs/knowledge"; cd "$T/m"
-cat > docs/knowledge/pitfalls.md <<'M'
-# 踩坑记录（pitfalls）
-
-## 新待办输入框不能加 HTML maxLength
-- 日期：2026-09-16 ｜ 来源：docs/changes/2026-09-16--input-validation/
-- 内容：故意不设 maxLength，否则提示永远不出现。
-- 适用范围：`src/App.tsx` 的 `.add-form` input；将来编辑框同理。
-
-## 子进程需要预先放行
-- 日期：2026-09-16 ｜ 来源：docs/changes/2026-09-16--input-validation/
-- 内容：在 settings.json 放行检查命令。
-  第二行内容。
-- 适用范围：`.claude/settings.json`
-M
-"$KS" migrate >/dev/null
-[[ $(find docs/knowledge/pitfalls -name '*.md' | wc -l) -eq 2 ]] || fail "migrate 应拆出 2 条，实际 $(find docs/knowledge/pitfalls -name '*.md')"
-[[ -f docs/knowledge/pitfalls.md.migrated && ! -f docs/knowledge/pitfalls.md ]] || fail "旧文件未改名"
-lk src/App.tsx | grep -q "maxLength" || fail "迁移后检索失败"
-lk .claude/settings.json | grep -q "第二行内容" || fail "多行内容丢失"
 echo PASS

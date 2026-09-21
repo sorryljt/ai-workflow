@@ -13,7 +13,7 @@ done
 [[ ! -d "$T/p1/.cursor/skills" ]] || fail "不应安装到 .cursor/skills"
 [[ -x "$T/p1/.claude/hooks/viktor-gate.sh" ]] || fail "缺少 hook"
 grep -q 'CLAUDE_PROJECT_DIR' "$T/p1/.claude/settings.json" || fail "hook 未用绝对路径"
-grep -q "fe-ai-workflow-start" "$T/p1/AGENTS.md" || fail "AGENTS.md 未注入"
+grep -q "ai-workflow-start" "$T/p1/AGENTS.md" || fail "AGENTS.md 未注入"
 grep -q "^@AGENTS.md$" "$T/p1/CLAUDE.md" || fail "CLAUDE.md 未引用 AGENTS.md"
 [[ ! -d "$T/p1/skills" && ! -d "$T/p1/references" ]] || fail "不应向项目根目录拷贝 skills/references"
 [[ -z "$(ls -A "$ROOT" | grep -E '\.tmp$')" ]] || fail "源目录残留临时文件"
@@ -38,7 +38,7 @@ PYTEST
 mkdir -p "$T/p2/.claude"; printf 'user header\n' > "$T/p2/AGENTS.md"
 echo '{"permissions":{"allow":["Bash(ls)"]},"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo pre"}]}]}}' > "$T/p2/.claude/settings.json"
 "$INSTALL" "$ROOT" "$T/p2" >/dev/null; "$INSTALL" "$ROOT" "$T/p2" >/dev/null
-[[ $(grep -c fe-ai-workflow-start "$T/p2/AGENTS.md") -eq 1 ]] || fail "标记重复"
+[[ $(grep -c ai-workflow-start "$T/p2/AGENTS.md") -eq 1 ]] || fail "标记重复"
 grep -q "user header" "$T/p2/AGENTS.md" || fail "用户内容丢失"
 grep -q '"echo pre"' "$T/p2/.claude/settings.json" || fail "已有 hooks 丢失"
 grep -q 'Bash(ls)' "$T/p2/.claude/settings.json" || fail "permissions 丢失"
@@ -50,15 +50,8 @@ cp "$T/p3/.claude/settings.json" "$T/p3.bak"
 "$INSTALL" "$ROOT" "$T/p3" >/dev/null 2>&1 && fail "非法 settings.json 应中止" || true
 cmp -s "$T/p3/.claude/settings.json" "$T/p3.bak" || fail "非法 settings.json 被修改"
 
-# ── 4. --migrate 只删 v0 精确名单，保留用户自己的技能 ──
-mkdir -p "$T/p4/skills/01-brainstorming" "$T/p4/skills/01-my-own" "$T/p4/references" "$T/p4/.cursor/rules" "$T/p4/.claude/commands/viktor" "$T/p4/.claude/skills/viktor-custom"
-touch "$T/p4/.cursor/rules/workflow.mdc" "$T/p4/.claude/commands/viktor/think.md" "$T/p4/.claude/commands/viktor/my-deploy.md" "$T/p4/references/testing-patterns.md" "$T/p4/references/mine.md" "$T/p4/.claude/skills/viktor-custom/SKILL.md"
-"$INSTALL" "$ROOT" "$T/p4" --migrate >/dev/null
-[[ ! -d "$T/p4/skills/01-brainstorming" && ! -f "$T/p4/.cursor/rules/workflow.mdc" && ! -f "$T/p4/.claude/commands/viktor/think.md" && ! -f "$T/p4/references/testing-patterns.md" ]] || fail "migrate 未清理 v0 文件"
-[[ -d "$T/p4/skills/01-my-own" && -f "$T/p4/.claude/commands/viktor/my-deploy.md" && -f "$T/p4/references/mine.md" && -f "$T/p4/.claude/skills/viktor-custom/SKILL.md" ]] || fail "migrate 误删用户文件"
-
 # ── 5. 缺少 END 标记：中止，不丢内容 ──
-mkdir -p "$T/p5"; printf 'head\n<!-- fe-ai-workflow-start -->\nold\nUSER TAIL\n' > "$T/p5/AGENTS.md"
+mkdir -p "$T/p5"; printf 'head\n<!-- ai-workflow-start -->\nold\nUSER TAIL\n' > "$T/p5/AGENTS.md"
 "$INSTALL" "$ROOT" "$T/p5" >/dev/null 2>&1 && fail "缺少 END 标记应中止" || true
 grep -q "USER TAIL" "$T/p5/AGENTS.md" || fail "缺少 END 标记时丢失内容"
 
@@ -155,6 +148,7 @@ set +e; echo '{}' | gate "$T/gc/a" 2>/dev/null; rc=$?; set -e; [[ $rc -eq 2 ]] |
 mkdir -p "$T/p8/.claude"; echo '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"bash .claude/hooks/viktor-gate.sh"}]},{"hooks":[{"type":"command","command":"echo keep"}]}]}}' > "$T/p8/.claude/settings.json"
 "$INSTALL" "$ROOT" "$T/p8" >/dev/null
 [[ $(grep -c viktor-gate.sh "$T/p8/.claude/settings.json") -eq 1 ]] && grep -q CLAUDE_PROJECT_DIR "$T/p8/.claude/settings.json" && grep -q '"echo keep"' "$T/p8/.claude/settings.json" || fail "旧 hook 条目未被替换或其他条目丢失"
-# ── 9. upgrade.sh 已改为转发 bootstrap.sh；执行中被原地替换的场景见 bootstrap.test.sh 第 4 条
+# ── 9. hooks 目录带 .gitattributes（Windows autocrlf 不得把 hook 转成 CRLF）
+[[ -f "$T/p1/.claude/hooks/.gitattributes" ]] || fail "hooks 目录应带 .gitattributes"
 
 echo "PASS"

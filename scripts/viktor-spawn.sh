@@ -21,6 +21,9 @@
 #   VIKTOR_SPAWN_TIMEOUT  秒，默认 480
 #   VIKTOR_WORKFLOW_DIR   工作流仓库目录（默认取本脚本所在仓库），用于定位 prompts/
 set -uo pipefail
+# 可移植工具：哈希（macOS shasum / Linux、Git Bash sha1sum）、去 CRLF 读文件（Windows 下 plan.md 可能是 CRLF）
+sha_stdin(){ if command -v shasum >/dev/null 2>&1; then shasum; elif command -v sha1sum >/dev/null 2>&1; then sha1sum; else openssl dgst -sha1 | sed 's/.*= //'; fi; }
+rd(){ tr -d '\r' < "$1"; }
 
 ROLE="${1:-}"; DIR="${2:-}"
 # 工作区快照：复制真实索引到临时文件（保留跟踪关系与 intent-to-add），再 add -A 更新内容，write-tree。
@@ -44,10 +47,10 @@ snapshot_tree() {  # snapshot_tree [排除目录...]；排除的目录会从临�
 case "$ROLE" in
   inputs-digest)
     [[ -f "$DIR/plan.md" ]] || { echo "缺少 $DIR/plan.md" >&2; exit 2; }
-    section(){ awk -v h="$1" '/^## /{p=(index($0,h)==1)} p' "$DIR/plan.md"; }
+    section(){ rd "$DIR/plan.md" | awk -v h="$1" '/^## /{p=(index($0,h)==1)} p'; }
     [[ -n "$(section "## 验收标准" | grep -v '^## ' | grep -v '^[[:space:]]*$')" ]] || { echo "$DIR/plan.md 没有 '## 验收标准' 节，无法生成验收输入摘要" >&2; exit 2; }
     { section "## 验收标准"; section "## 本轮运行配置"
-      [[ -f AGENTS.md ]] && sed -n '/^[[:space:]]*```viktor-checks[[:space:]]*$/,/^[[:space:]]*```[[:space:]]*$/p' AGENTS.md; } | tr -d '\r' | shasum | cut -c1-12
+      [[ -f AGENTS.md ]] && sed -n '/^[[:space:]]*```viktor-checks[[:space:]]*$/,/^[[:space:]]*```[[:space:]]*$/p' AGENTS.md; } | tr -d '\r' | sha_stdin | cut -c1-12
     exit 0;;
   snapshot)    snapshot_tree ; exit $?;;
   fingerprint) t="$(snapshot_tree docs/changes docs/knowledge)" || exit 1; printf '%s\n' "${t:0:12}"; exit 0;;
@@ -74,15 +77,14 @@ TIMEOUT="${VIKTOR_SPAWN_TIMEOUT:-480}"
 OUT="$DIR/$ROLE.md"
 
 # 档位、主干分支、diff 基线
-[[ -z "$TIER" && -f "$DIR/plan.md" ]] && TIER="$(sed -n 's/^tier:[[:space:]]*\([SML]\).*/\1/p' "$DIR/plan.md" | head -1)"
+[[ -z "$TIER" && -f "$DIR/plan.md" ]] && TIER="$(rd "$DIR/plan.md" | sed -n 's/^tier:[[:space:]]*\([SML]\).*/\1/p' | head -1)"
 TIER="${TIER:-S}"
 [[ -z "$MAIN" && -f AGENTS.md ]] && MAIN="$(sed -n 's/^- 主干分支：[[:space:]]*//p' AGENTS.md | head -1 | tr -d '\r')"
 MAIN="${MAIN:-main}"
-# 审查基线：优先 plan.md 的 base_tree（需求开始时的工作区快照），其次 base_sha，最后与主干的 merge-base
+# 审查基线：优先 plan.md 的 base_tree（需求开始时的工作区快照），否则与主干的 merge-base
 BASE=""
 if [[ -f "$DIR/plan.md" ]]; then
-  BASE="$(sed -n '1,/^---$/{s/^base_tree:[[:space:]]*//p;}' "$DIR/plan.md" | head -1 | sed 's/[[:space:]]*#.*//' | tr -d '\r')"
-  [[ -z "$BASE" ]] && BASE="$(sed -n '1,/^---$/{s/^base_sha:[[:space:]]*//p;}' "$DIR/plan.md" | head -1 | sed 's/[[:space:]]*#.*//' | tr -d '\r')"
+  BASE="$(rd "$DIR/plan.md" | sed -n '1,/^---$/{s/^base_tree:[[:space:]]*//p;}' | head -1 | sed 's/[[:space:]]*#.*//' | tr -d '\r')"
 fi
 if [[ -z "$BASE" ]] || ! git cat-file -e "$BASE" 2>/dev/null; then
   # 事后发起的审查没有历史快照：一律审"分支相对主干的全部变化"（git diff <merge-base> 同时含分支提交与工作区改动；在主干上就是 HEAD）。
@@ -177,6 +179,8 @@ if [[ "$AGENT" == claude && -f "$HOME/.claude.json" ]]; then
       [[ -n "$trust_main" ]] && TRUST_PATHS+=("$trust_main")
     fi
   fi
+  # Windows（Git Bash）下 Claude 记的是 C:\… 形式，用 cygpath -w 再补一份候选
+  if command -v cygpath >/dev/null 2>&1; then for _w in "${TRUST_PATHS[@]}"; do _c="$(cygpath -w "$_w" 2>/dev/null)"; [[ -n "$_c" ]] && TRUST_PATHS+=("$_c"); done; fi
   trust_rc=0
   if command -v node >/dev/null 2>&1; then
     node -e 'try { const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); const values = process.argv.slice(2).map(p => c.projects?.[p]?.hasTrustDialogAccepted); process.exit(values.includes(true) ? 0 : values.includes(false) ? 2 : 3); } catch (_) { process.exit(2); }' "$HOME/.claude.json" "${TRUST_PATHS[@]}" || trust_rc=$?
@@ -244,15 +248,21 @@ LOG="$DIR/.$ROLE.log"
 RES="$DIR/.$ROLE.resources"; : > "$RES"
 export VIKTOR_RUN_ID="$RUN_ID" VIKTOR_RESOURCES="$RES"
 
-kill_tree() {  # 递归终止进程树（无 setsid 的可移植做法）
-  local p="$1" c; for c in $(pgrep -P "$p" 2>/dev/null); do kill_tree "$c"; done
+children_of(){  # 子进程 pid 列表：pgrep（macOS/Linux）→ ps 列表解析（Git Bash 的 ps 只有 PID PPID …）
+  if command -v pgrep >/dev/null 2>&1; then pgrep -P "$1" 2>/dev/null
+  else ps 2>/dev/null | awk -v p="$1" 'NR>1 && $2==p {print $1}'; fi
+}
+kill_tree() {  # 递归终止进程树（无 setsid 的可移植做法）；Windows 上 taskkill /T 一次杀整棵树
+  local p="$1" c
+  if command -v taskkill >/dev/null 2>&1; then MSYS_NO_PATHCONV=1 taskkill /PID "$p" /T /F >/dev/null 2>&1 && return 0; fi
+  for c in $(children_of "$p"); do kill_tree "$c"; done
   kill "$p" 2>/dev/null; sleep 0.2; kill -9 "$p" 2>/dev/null
 }
 CHILD_PID=""; CHILD_PGID=""; OWN_PG=0
 run_with_timeout() {  # 可移植的超时（macOS 无 timeout / setsid）；有 perl 时把子进程放进独立进程组
   local pid waited=0
   if command -v perl >/dev/null 2>&1; then
-    perl -e 'setpgrp(0,0); exec @ARGV or die' -- "${CMD[@]}" >"$LOG" 2>&1 & pid=$!; OWN_PG=1
+    perl -e 'eval { setpgrp(0,0) }; exec @ARGV or die' -- "${CMD[@]}" >"$LOG" 2>&1 & pid=$!; OWN_PG=1   # Windows 的 perl 没有 setpgrp，eval 吞掉即可
   else
     "${CMD[@]}" >"$LOG" 2>&1 & pid=$!
   fi
@@ -262,13 +272,14 @@ run_with_timeout() {  # 可移植的超时（macOS 无 timeout / setsid）；有
   while kill -0 "$pid" 2>/dev/null; do
     sleep 1; waited=$((waited + 1))
     if [[ $waited -ge $TIMEOUT ]]; then
-      if [[ $OWN_PG -eq 1 ]]; then kill -- "-$pid" 2>/dev/null; sleep 1; kill -9 -- "-$pid" 2>/dev/null; else kill_tree "$pid"; fi
+      if [[ $OWN_PG -eq 1 ]]; then kill -- "-$pid" 2>/dev/null; sleep 1; kill -9 -- "-$pid" 2>/dev/null; fi; kill_tree "$pid"
       echo "TIMEOUT" >>"$LOG"; return 124
     fi
   done
   wait "$pid"
 }
 reap_group() {  # 子进程结束后（正常、失败、超时都一样），同一进程组里的残留进程一律终止
+  # setpgrp 没生效（Windows）时这个进程组不存在，kill 只会 ESRCH，无副作用
   [[ $OWN_PG -eq 1 && -n "$CHILD_PID" ]] || return 0
   kill -- "-$CHILD_PID" 2>/dev/null || return 0
   sleep 0.5; kill -9 -- "-$CHILD_PID" 2>/dev/null || true
@@ -310,9 +321,9 @@ cleanup_testcontainers() {
 verify() {  # verify <进程退出码>
   local rc="$1"
   [[ -f "$OUT" ]] || { echo "${ROLE} 进程结束但未产出 ${OUT}（日志：${LOG}）" >&2; return 2; }
-  local rid; rid="$(sed -n '1,/^---$/{s/^run_id:[[:space:]]*//p;}' "$OUT" | head -1 | sed 's/[[:space:]]*#.*//; s/[[:space:]]*$//' | tr -d '\r"')"
+  local rid; rid="$(rd "$OUT" | sed -n '1,/^---$/{s/^run_id:[[:space:]]*//p;}' | head -1 | sed 's/[[:space:]]*#.*//; s/[[:space:]]*$//' | tr -d '\r"')"
   [[ "$rid" == "$RUN_ID" ]] || { echo "${OUT} 不属于本轮（run_id=${rid:-无}，期望 ${RUN_ID}），日志：${LOG}" >&2; return 2; }
-  local res; res="$(sed -n '1,/^---$/{s/^result:[[:space:]]*\([a-z]*\).*/\1/p;}' "$OUT" | head -1)"
+  local res; res="$(rd "$OUT" | sed -n '1,/^---$/{s/^result:[[:space:]]*\([a-z]*\).*/\1/p;}' | head -1)"
   if [[ "$rc" -ne 0 && "$res" != error ]]; then echo "${ROLE} 进程异常退出（rc=${rc}），报告不采信，日志：${LOG}" >&2; return 2; fi
   case "$ROLE:$res" in
     review:pass|check:pass) echo "${ROLE} 通过：${OUT}"; return 0;;

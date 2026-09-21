@@ -235,6 +235,12 @@ printf -- '- [ ] AC-2：y\n' >> "$D/plan.md"; [[ "$("$SPAWN" inputs-digest "$D")
 d1="$("$SPAWN" inputs-digest "$D")"; printf '\n## 本轮运行配置\n```viktor-checks\ntest: x\n```\n' >> "$D/plan.md"
 [[ "$("$SPAWN" inputs-digest "$D")" != "$d1" ]] || fail "加运行配置应改变输入摘要"
 
+# 6i. CRLF 的 plan.md（Windows）：摘要与 LF 版一致
+printf -- '---\nstatus: in-progress\ntier: M\n---\n# x\n\n## 验收标准\n- [ ] AC-1：a\n' > "$D/plan.md"; dl="$("$SPAWN" inputs-digest "$D")"
+printf -- '---\r\nstatus: in-progress\r\ntier: M\r\n---\r\n# x\r\n\r\n## 验收标准\r\n- [ ] AC-1：a\r\n' > "$D/plan.md"
+[[ "$("$SPAWN" inputs-digest "$D")" == "$dl" ]] || fail "CRLF 的 plan.md 摘要应与 LF 一致"
+printf -- '---\nstatus: in-progress\ntier: M\n---\n# x\n\n## 验收标准\n- [ ] AC-1：a\n' > "$D/plan.md"
+
 # 7. VIKTOR_AGENT 强制选择；后台模式写 .done
 mkfake claude "writeres review pass"
 mkfake codex "exit 9"
@@ -346,10 +352,10 @@ set +e; run review "$D" --agent codex >/dev/null 2>"$T/err"; rc=$?; set -e
 cp "$T/agents.bak" "$T/proj/AGENTS.md"
 
 # 9. 提示词里的 knowledge.sh 用相对项目根目录的路径（和 init 写的放行规则一致），不出现绝对路径
-mkdir -p "$T/proj/.workflow"; ln -s "$ROOT" "$T/proj/.workflow/fe-ai-workflow"
+mkdir -p "$T/proj/.workflow"; ln -s "$ROOT" "$T/proj/.workflow/ai-workflow"
 mkfake claude "writeres review pass"
-HOME="$T/home" PATH="$T/bin:/usr/bin:/bin" VIKTOR_WORKFLOW_DIR="$T/proj/.workflow/fe-ai-workflow" "$SPAWN" review "$D" --agent claude >/dev/null || fail "工作流在项目目录下时应能派单"
-grep -q 'bash \.workflow/fe-ai-workflow/scripts/knowledge\.sh lookup' "$D/.review.prompt.md" || fail "提示词里的 knowledge.sh 路径应以 .workflow/ 开头"
+HOME="$T/home" PATH="$T/bin:/usr/bin:/bin" VIKTOR_WORKFLOW_DIR="$T/proj/.workflow/ai-workflow" "$SPAWN" review "$D" --agent claude >/dev/null || fail "工作流在项目目录下时应能派单"
+grep -q 'bash \.workflow/ai-workflow/scripts/knowledge\.sh lookup' "$D/.review.prompt.md" || fail "提示词里的 knowledge.sh 路径应以 .workflow/ 开头"
 grep -qF "$T/proj/.workflow" "$D/.review.prompt.md" && fail "提示词里不应出现工作流的绝对路径" || true
 rm -rf "$T/proj/.workflow"
 # 10. 无测试提示基于实际审查范围，包含未跟踪文件；仅新增/修改测试才能免提示。

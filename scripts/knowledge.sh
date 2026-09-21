@@ -5,7 +5,6 @@
 #   knowledge.sh add --type decision|pitfall|glossary --title "…" --scope "a,b" [--source "…"] < 正文
 #   knowledge.sh supersede <条目路径> <新条目路径>   把旧条目标为 superseded
 #   knowledge.sh rebuild                    从条目 frontmatter 重建 index.md；适用范围路径不存在的标 ?
-#   knowledge.sh migrate                    把旧的 decisions.md / pitfalls.md / glossary.md 拆成条目文件
 #
 # 目录：docs/knowledge/{decisions,pitfalls,glossary}/YYYY-MM/<slug>.md，index.md 每行：类型 | 状态 | 标题 | 适用范围 | 路径
 set -uo pipefail
@@ -69,24 +68,5 @@ case "$cmd" in
     sed -i.bak "s/^status:.*/status: superseded/" "$f" && rm -f "$f.bak"
     grep -q '^superseded_by:' "$f" && sed -i.bak "s#^superseded_by:.*#superseded_by: $new#" "$f" && rm -f "$f.bak" || sed -i.bak "s#^status: superseded#status: superseded\nsuperseded_by: $new#" "$f" && rm -f "$f.bak"
     "$0" rebuild >/dev/null; echo "已标记 $f 为 superseded";;
-  migrate)
-    ym="$(date +%Y-%m)"
-    for pair in decisions:decision pitfalls:pitfall glossary:glossary; do
-      file="$K/${pair%%:*}.md"; type="${pair##*:}"; dir="$K/${pair%%:*}/$ym"
-      [[ -f "$file" ]] || continue
-      mkdir -p "$dir"
-      awk -v dir="$dir" -v type="$type" '
-        function flush(){ if(title!=""){ fn=title; gsub(/[ \t\/`:：,，。;；|｜()（）"'"'"'<>]+/,"-",fn); sub(/^-+/,"",fn); sub(/-+$/,"",fn); fn=dir "/" substr(fn,1,60) ".md";
-          printf "---\ntype: %s\ntitle: \"%s\"\nstatus: active\nscope: %s\nsource: %s\ndate: %s\n---\n\n%s\n", type, title, scope, source, date, body > fn; close(fn); n++ }
-          title=""; body=""; scope=""; source=""; date="" }
-        /^## /{ flush(); title=substr($0,4); next }
-        title!="" && /^- 日期：/{ line=$0; sub(/^- 日期：/,"",line); split(line,a,/ *[｜|] *来源：/); date=a[1]; source=a[2]; next }
-        title!="" && /^- 适用范围：/{ line=$0; sub(/^- 适用范围：/,"",line); gsub(/`/,"",line); gsub(/[；、]/,",",line); gsub(/。$/,"",line); scope=line; next }
-        title!="" && /^- 内容：/{ line=$0; sub(/^- 内容：/,"",line); body=body line "\n"; next }
-        title!="" { body=body $0 "\n" }
-        END{ flush(); print n+0 > "/dev/stderr" }' "$file" 2>&1 | tail -1 | xargs -I{} echo "$file → {} 条"
-      mv "$file" "$file.migrated"
-    done
-    "$0" rebuild;;
   *) sed -n '2,12p' "$0"; exit 2;;
 esac

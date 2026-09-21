@@ -1,26 +1,33 @@
-# fe-ai-workflow
+# ai-workflow
 
-> AI 辅助开发工作流，基于原生 Agent Skills，兼容 Claude Code、OpenAI Codex、Cursor。前端与后端（Java 等）仓库各自独立使用，框架差异交给模型判断，不维护模板表。
+AI 辅助开发工作流：一个命令跑完需求，中间只在计划确认和异常时找你。基于原生 Agent Skills，兼容 Claude Code、OpenAI Codex、Cursor；前端、后端（Java 等）仓库各自独立使用。
 
-## 原则
+## 安装 / 升级
 
-1. 5 个节点都是标准 Agent Skill，一份源文件装到各端。
-2. 按任务规模分档，小改动不走完整流程。
-3. 门禁用命令而不是提示词：Stop hook 自动跑 typecheck / lint / test。
-4. 只沉淀代码里读不出来的知识；按改动范围检索，不整目录读。
-5. TDD 是核心；review 和 check 在独立进程里做，不自己审自己。
-6. 一个入口自动跑完，人只在 plan 确认和异常时介入；状态只在磁盘，随时可停、可续。
+在项目根目录执行（前后端通用，只需要 git；Windows 在 Git Bash 里执行）：
 
-## 节点
+```bash
+curl -fsSL https://raw.githubusercontent.com/sorryljt/ai-workflow/main/bootstrap.sh | bash              # 最新稳定版
+curl -fsSL https://raw.githubusercontent.com/sorryljt/ai-workflow/main/bootstrap.sh | bash -s -- v1.2.0 # 指定版本
+git add -A && git commit -m "chore: ai-workflow"
+```
+
+升级就是再跑一次。内网仓库用 `AI_WORKFLOW_REPO=<git 地址>` 指定来源。
+
+首次安装后：在项目目录交互式打开一次 Claude Code 并选择信任工作区，然后运行 `/viktor-init`。升级后 CHANGELOG 若提到需要重跑 `/viktor-init`，重开会话执行一次。
+
+Windows：需要 Git for Windows，Claude Code 的 hook 与子进程都在 Git Bash 里运行；Codex 建议在 WSL 中使用。
+
+## 使用
 
 | 命令 | 作用 |
 |------|------|
 | `/viktor-flow <需求>` | 判档后自动跑完整流程；不带参数则续接自己上次停下的需求 |
-| `/viktor-init` | 探测并逐条验证检查命令，写入 AGENTS.md（含运行前提），放行子进程权限，建知识库 |
-| `/viktor-plan` | 需求澄清 + 任务拆分，产出 plan.md；M/L 档唯一需要人确认的节点 |
-| `/viktor-code` | TDD 实现，每一步有真实测试输出 |
-| `/viktor-review` | 独立进程审查 diff，输出问题清单；有 BLOCKING 自动修复复审，最多 2 轮 |
-| `/viktor-check` | 独立进程以用户视角逐条验证验收标准 |
+| `/viktor-init` | 探测并验证检查命令，写入 AGENTS.md，放行子进程权限，建知识库 |
+| `/viktor-plan` | 需求澄清 + 任务拆分，产出 plan.md；M/L 档唯一需要你确认的节点 |
+| `/viktor-code` | TDD 实现 |
+| `/viktor-review` | 独立进程审查 diff；有 BLOCKING 自动修复复审，最多 2 轮 |
+| `/viktor-check` | 独立进程逐条验证验收标准 |
 | `/viktor-ship` | 交付报告 + 沉淀知识 + 标记完成 |
 
 Codex 里用 `$viktor-flow`；也可以用自然语言描述意图。
@@ -31,67 +38,17 @@ Codex 里用 `$viktor-flow`；也可以用自然语言描述意图。
 |------|------|------|
 | S | 无需人拍板的取舍，改动集中 | code → review → check → ship（全程自动） |
 | M | 单个模块，有口径或取舍需要确认 | plan（等你确认）→ code → review → check → ship |
-| L | 新增或修改数据模型 / 持久化结构（给已有表加可空列、放宽或收紧请求校验边界不算，这两类按 M；只有影响已有数据可读性、需要迁移或改主键 / 唯一约束的才算 L），或跨多个模块 | plan（含任务清单）→ code → review → check → ship |
+| L | 新增或修改数据模型 / 持久化结构（影响已有数据可读性、需要迁移或改主键 / 唯一约束），或跨多个模块 | plan（含任务清单）→ code → review → check → ship |
 
 AI 判档后输出一行声明，觉得不对直接说"按 L 走"。
 
-### 什么时候停
+### 续接
 
-只在五处：plan 确认、缺前置、计划偏离、2 轮复审仍有 BLOCKING、验收修不好。停下时只有一张卡，最后一行写清可以回复什么。
+任何会话输入 `/viktor-flow` 不带参数，从自己上次停下的节点继续；同一会话说"继续"也行。停下时只有一张卡，最后一行写清可以回复什么。别人的未完成需求不会被提示。
 
-**续接**：任何会话输入 `/viktor-flow` 不带参数，从自己上次停下的节点继续；同一会话说"继续"也行。别人的未完成需求不会被提示。
+### Codex 用户注意
 
-### 独立审查与验收
-
-review / check 通过 `scripts/viktor-spawn.sh` 用 `claude -p` 或 `codex exec` 起新进程，同步等待，默认 480 秒超时。审查深度按档位限制，diff 超过 800 行不自动审。子进程不继承会话授权，`viktor-init` 会把检查命令写进 `.claude/settings.json` 的 `permissions.allow`；这些规则只在已信任的工作区生效，spawn 派 Claude 子进程前读取 `~/.claude.json` 中的信任字段，候选包含 `$PWD`、解析符号链接后的物理路径、git 根目录和 worktree 对应的主仓库路径；任一为 `true` 即通过，无明确记录时只警告并继续，明确为 `false` 且没有候选为 `true` 时退出 2 并提示先信任。配置文件缺失或 node / python3 均不可用时跳过主动检测，仍保留日志关键字检测兜底。check 按每条 AC 选最小充分证据：涉及服务端数据、权限、契约、资金、幂等的 AC 默认关键，证据缺失就 `blocked`（退出码 4，不改代码，处理环境后重验）；非关键项测不到标 👀 待人工。没跑过 `/viktor-init` 的项目，plan 会先做一次不改配置的预检，逐键从 README、package.json、CI 和构建配置核对 typecheck / lint / test / verify / e2e / dev，能推导出的键一条都不能省，推导不出的键省略且注明；dev 只记录启动入口，预检时不启动服务。命令以本轮配置传给子进程。
-
-子进程不得提权：spawn 拒绝 `--dangerously-skip-permissions`、`bypassPermissions`、`danger-full-access` 等参数（退出码 2），主会话遇到权限问题只输出需要处理卡、不改参数重跑。Codex 下 JVM 项目（Maven / Gradle）在默认 `workspace-write` 沙箱里跑不起测试（Mockito 等需要 JVM self-attach，被沙箱的网络限制拦下），需要 `--sandbox workspace-write -c sandbox_workspace_write.network_access=true`：viktor-init 探测到 Maven / Gradle 时会在 AGENTS.md 项目信息节写入 `- 子进程参数：codex --sandbox workspace-write -c sandbox_workspace_write.network_access=true`，并在节点卡上注明。**这会放开 review / check 子进程的外网访问**，不接受的话删掉这一行（Codex 下 JVM 项目的独立验收会报 error）。`read-only` 连报告都写不了；`danger-full-access` 和 `--dangerously-*` 无论写在环境变量还是这一行都会被拒绝。
-
-验证范围：Claude Code 端的各档位、续接、blocked / manual、交付报告都做过真实模型验证；**Codex 端只验证了基本流程**（S 档派单、JVM 项目的沙箱参数、子进程不提权）。
-
-Codex + JVM + Docker（本机 colima）已验证：保留 `workspace-write`、`network_access=true` 和 colima 目录写权限，设置 `DOCKER_HOST=unix://<socket 绝对路径>`、`TESTCONTAINERS_RYUK_DISABLED=true` 后，完整 verify 的 37 个测试通过。另加 `TESTCONTAINERS_HOST_OVERRIDE=127.0.0.1` 也通过，但本机不需要这个变量。init 会在“子进程参数”中一并写入这些配置，例如：
-
-```text
-- 子进程参数：codex --sandbox workspace-write -c sandbox_workspace_write.network_access=true --add-dir /Users/dawson/.colima/default -c 'shell_environment_policy.set.DOCKER_HOST="unix:///Users/dawson/.colima/default/docker.sock"' -c 'shell_environment_policy.set.TESTCONTAINERS_RYUK_DISABLED="true"'
-```
-
-将示例路径换成实际探测到的绝对路径。`--add-dir` 用于添加 colima 可写目录（试验中使用等效的 `sandbox_workspace_write.writable_roots`）；[Codex 的 shell_environment_policy.set](https://developers.openai.com/codex/config-reference) 向执行命令注入环境变量，其值必须为字符串，保留示例中的单双引号，不能把 `"true"` 写成 TOML 布尔值。spawn 支持这些分组引号，仍拒绝 shell 展开、运算符及提权参数。禁用 Ryuk 后不再有 Ryuk 的异常退出回收保障：正常结束由测试关闭容器，spawn 超时保留本轮 Testcontainers 容器清理兜底，其他异常退出需检查本轮残留。两次试验均无残留容器，详见 [试验记录](docs/2026-09-19--next-backlog.md)。
-
-实测（Vite + React + Vitest）：M 档一个需求 40 分钟左右，S 档 8 分钟；review 一轮 2～5 分钟，check 2～4 分钟。
-
-## 接入
-
-在项目根目录执行一条命令，安装和升级都是它（前端、后端仓库通用，只需要 git）：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/sorryljt/fe-ai-workflow/main/bootstrap.sh | bash              # 最新稳定版
-curl -fsSL https://raw.githubusercontent.com/sorryljt/fe-ai-workflow/main/bootstrap.sh | bash -s -- v1.1.3 # 指定版本
-git add -A && git commit -m "chore: add fe-ai-workflow"
-```
-
-它把该版本的纯文件副本放到 `.workflow/fe-ai-workflow`、写 `.workflow/version`、生成安装产物。版本以提交进仓库的 `.workflow/version` 为准，其他人 pull 下来就是同一份，不用再跑命令；升级就是再跑一次（默认取最新稳定 tag）。老项目里的 submodule 会被自动转成纯文件副本。内网仓库用 `FE_AI_WORKFLOW_REPO=<git 地址>` 指定来源。
-
-然后在项目目录**交互式**打开一次 Claude Code 并选择信任工作区（未被信任时，`claude -p` 子进程会忽略 `.claude/settings.json` 的放行规则，review / check 第一次就会报 error；上级目录的信任不传递到独立 git 仓库），再运行 `/viktor-init`。重复 init 只对“项目信息”中探测得到的技术栈、构建工具、主干分支、命令验证、viktor-checks 块、运行前提、子进程参数提差异，确认后更新；约定和禁区是用户内容，一律不提差异、不修改。升级后 CHANGELOG 若提到需要重跑 `/viktor-init`（重复执行模式），重开会话执行一次。
-
-安装脚本写入 `.claude/skills/`、`.agents/skills/`、`.claude/hooks/viktor-gate.sh`、`.claude/settings.json`（合并 Stop hook，保留已有配置）、`AGENTS.md` 标记段、`CLAUDE.md` 一行 `@AGENTS.md`。Cursor 会同时扫描 `.agents/skills` 和 `.claude/skills`，如出现重复技能可删掉后者。
-
-可选 postinstall：项目没有 postinstall 时 `npm pkg set scripts.postinstall=".workflow/fe-ai-workflow/scripts/install.sh .workflow/fe-ai-workflow . || true"`；已有的话追加为 `原命令 && (…install.sh … || true)`。
-
-## 门禁
-
-`viktor-init` 在 AGENTS.md 写入：
-
-```viktor-checks
-typecheck: pnpm tsc --noEmit
-test: pnpm vitest run
-verify: mvn verify           # 可选，完整验收，只有 check 跑
-e2e: pnpm playwright test    # 可选
-dev: pnpm dev                # 可选，启动入口
-```
-
-命令一律以 AGENTS.md 所在目录为工作目录，子模块写进命令本身（`mvn -pl server test`）。块后面的 `### 运行前提` 节写外部环境（数据库、容器运行时），会一起交给独立进程。
-
-Stop hook 只在源码改动指纹变化时运行 typecheck / lint / test；失败反馈给 Agent 修复，同一回合连续 3 次失败后放行并提示用户。支持 git worktree 和 monorepo 子包。命令必须是非 watch 模式。
+JVM 项目（Maven / Gradle）在 Codex 默认沙箱里跑不起测试，`/viktor-init` 会在 AGENTS.md 项目信息节写入 `- 子进程参数：codex --sandbox workspace-write -c sandbox_workspace_write.network_access=true`（Docker / Testcontainers 项目还会加上 socket 与环境变量）。**这会放开 review / check 子进程的外网访问**，不接受就删掉这一行，代价是 Codex 下 JVM 项目的独立验收会报 error。
 
 ## 产物
 
@@ -103,33 +60,16 @@ docs/
 │   ├── check.md
 │   └── report.md
 └── knowledge/
-    ├── index.md               # 脚本维护
-    ├── decisions/YYYY-MM/*.md
-    ├── pitfalls/YYYY-MM/*.md
-    └── glossary/YYYY-MM/*.md
+    ├── index.md               # 脚本维护，不要手改
+    ├── decisions/YYYY-MM/*.md # 决策：为什么这么做
+    ├── pitfalls/YYYY-MM/*.md  # 踩坑：别这么做
+    └── glossary/YYYY-MM/*.md  # 术语：这个词在这里指什么
 ```
 
-知识一条一个文件，`scope` 写它约束的路径 / 模块 / 场景；各节点用 `scripts/knowledge.sh lookup <路径> <关键词>` 只读命中的条目。被推翻的条目标 `superseded` 保留；`rebuild` 时路径失效标 `?`。旧格式用 `knowledge.sh migrate` 拆分。
+检查命令在 AGENTS.md 的 `viktor-checks` 块里，由 `/viktor-init` 写入，可以手改；命令以 AGENTS.md 所在目录为工作目录，子模块写进命令本身。
 
-## 仓库结构
+## 发布（维护者）
 
-```
-skills/viktor-*/SKILL.md       # 唯一真相源
-prompts/review.md | check.md   # 独立进程的提示词
-hooks/                         # Stop hook
-templates/AGENTS.snippet.md    # 注入业务项目的入口段
-bootstrap.sh                   # 一条命令安装 / 升级
-scripts/                       # install / validate / viktor-spawn / knowledge + 测试
-```
+安装只认 `vX.Y.Z` tag。每次功能改动合到 main 后：CHANGELOG 的 `[Unreleased]` 定版 → README 示例版本号 → `bash scripts/validate.sh` → `git commit` → `git tag vX.Y.Z` → `git push && git push --tags`。改节点语义或要求重跑 init 升 minor，其余升 patch。
 
-开发本仓库：`bash scripts/validate.sh`，`bash scripts/install.test.sh`，`bash scripts/spawn.test.sh`，`bash scripts/knowledge.test.sh`，`bash scripts/bootstrap.test.sh`。
-
-## 发布
-
-安装只认 `vX.Y.Z` tag，合到 main 而没打 tag 的改动没人装得到。每次功能改动合并后：CHANGELOG 的 `[Unreleased]` 定版 → README 示例版本号 → `validate.sh` → `git tag vX.Y.Z` → `git push --tags`。改节点语义或要求重跑 init 升 minor，其余升 patch。详见 AGENTS.md 的"发布"。
-
-设计文档：`docs/2026-09-15--v1-redesign.md`、`docs/2026-09-16--flow-and-independent-review.md`；审查记录：`docs/2026-09-15--v1-review.md`；验收记录：`docs/2026-09-16--demo-results.md`。
-
-审查验收覆盖是硬规则：源码改动没有新增或修改测试直接 BLOCKING，S 档同样需要回归测试；仅 plan.md 对相应 AC 明确写“替代验证”并说明理由才可免测。spawn 会把缺测试提示追加到审查提示词。
-
-Codex 的对话输出纪律与待确认卡、需要处理卡同步注入 AGENTS.md；节点卡标题仅限 INIT / PLAN / CODE / REVIEW / CHECK / SHIP，每个节点完成时只输出一张，复审通过必须输出 `✔ REVIEW` 卡。中途进度仅允许 `· AC-n ✔ <测试名>` 单行，不得制作进度、准备、收尾卡或自造标题；卡片外仅允许该进度单行及规定的未初始化备注，模板源仍保留在 skills 中。
+工作机制与设计记录见 [docs/design.md](docs/design.md)。

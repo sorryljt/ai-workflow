@@ -65,7 +65,7 @@ Codex + JVM + Docker（本机 colima）已验证：保留 `workspace-write`、`n
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sorryljt/fe-ai-workflow/main/bootstrap.sh | bash              # 最新稳定版
-curl -fsSL https://raw.githubusercontent.com/sorryljt/fe-ai-workflow/main/bootstrap.sh | bash -s -- v1.1.2 # 指定版本
+curl -fsSL https://raw.githubusercontent.com/sorryljt/fe-ai-workflow/main/bootstrap.sh | bash -s -- v1.1.3 # 指定版本
 git add -A && git commit -m "chore: add fe-ai-workflow"
 ```
 
@@ -123,6 +123,10 @@ scripts/                       # install / validate / viktor-spawn / knowledge +
 ```
 
 开发本仓库：`bash scripts/validate.sh`，`bash scripts/install.test.sh`，`bash scripts/spawn.test.sh`，`bash scripts/knowledge.test.sh`，`bash scripts/bootstrap.test.sh`。
+
+## 发布
+
+安装只认 `vX.Y.Z` tag，合到 main 而没打 tag 的改动没人装得到。每次功能改动合并后：CHANGELOG 的 `[Unreleased]` 定版 → README 示例版本号 → `validate.sh` → `git tag vX.Y.Z` → `git push --tags`。改节点语义或要求重跑 init 升 minor，其余升 patch。详见 AGENTS.md 的"发布"。
 
 设计文档：`docs/2026-09-15--v1-redesign.md`、`docs/2026-09-16--flow-and-independent-review.md`；审查记录：`docs/2026-09-15--v1-review.md`；验收记录：`docs/2026-09-16--demo-results.md`。
 

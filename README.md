@@ -61,14 +61,17 @@ Codex + JVM + Docker（本机 colima）已验证：保留 `workspace-write`、`n
 
 ## 接入
 
+在项目根目录执行一条命令，安装和升级都是它（前端、后端仓库通用，只需要 git）：
+
 ```bash
-git submodule add https://github.com/sorryljt/fe-ai-workflow.git .workflow/fe-ai-workflow
-cd .workflow/fe-ai-workflow && git checkout v1.1.2 && cd ../..
-.workflow/fe-ai-workflow/scripts/install.sh .workflow/fe-ai-workflow .
+curl -fsSL https://raw.githubusercontent.com/sorryljt/fe-ai-workflow/main/bootstrap.sh | bash              # 最新稳定版
+curl -fsSL https://raw.githubusercontent.com/sorryljt/fe-ai-workflow/main/bootstrap.sh | bash -s -- v1.1.2 # 指定版本
 git add -A && git commit -m "chore: add fe-ai-workflow"
 ```
 
-然后在项目目录**交互式**打开一次 Claude Code 并选择信任工作区（未被信任时，`claude -p` 子进程会忽略 `.claude/settings.json` 的放行规则，review / check 第一次就会报 error；上级目录的信任不传递到独立 git 仓库），再运行 `/viktor-init`。重复 init 只对“项目信息”中探测得到的技术栈、构建工具、主干分支、命令验证、viktor-checks 块、运行前提、子进程参数提差异，确认后更新；约定和禁区是用户内容，一律不提差异、不修改。升级：`.workflow/fe-ai-workflow/scripts/upgrade.sh <版本 tag>`。从 1.0.x 升到 1.1.0 时，第一次运行的是旧版脚本，不会检测放行规则；跑完后再运行一次同样的命令，或直接重跑 `/viktor-init`（重复执行模式）补齐放行规则，详见 CHANGELOG 的"从 1.0.x 升级"。
+它把该版本的纯文件副本放到 `.workflow/fe-ai-workflow`、写 `.workflow/version`、生成安装产物。版本以提交进仓库的 `.workflow/version` 为准，其他人 pull 下来就是同一份，不用再跑命令；升级就是再跑一次（默认取最新稳定 tag）。老项目里的 submodule 会被自动转成纯文件副本。内网仓库用 `FE_AI_WORKFLOW_REPO=<git 地址>` 指定来源。
+
+然后在项目目录**交互式**打开一次 Claude Code 并选择信任工作区（未被信任时，`claude -p` 子进程会忽略 `.claude/settings.json` 的放行规则，review / check 第一次就会报 error；上级目录的信任不传递到独立 git 仓库），再运行 `/viktor-init`。重复 init 只对“项目信息”中探测得到的技术栈、构建工具、主干分支、命令验证、viktor-checks 块、运行前提、子进程参数提差异，确认后更新；约定和禁区是用户内容，一律不提差异、不修改。升级后 CHANGELOG 若提到需要重跑 `/viktor-init`（重复执行模式），重开会话执行一次。
 
 安装脚本写入 `.claude/skills/`、`.agents/skills/`、`.claude/hooks/viktor-gate.sh`、`.claude/settings.json`（合并 Stop hook，保留已有配置）、`AGENTS.md` 标记段、`CLAUDE.md` 一行 `@AGENTS.md`。Cursor 会同时扫描 `.agents/skills` 和 `.claude/skills`，如出现重复技能可删掉后者。
 
@@ -115,10 +118,11 @@ skills/viktor-*/SKILL.md       # 唯一真相源
 prompts/review.md | check.md   # 独立进程的提示词
 hooks/                         # Stop hook
 templates/AGENTS.snippet.md    # 注入业务项目的入口段
-scripts/                       # install / upgrade / validate / viktor-spawn / knowledge + 测试
+bootstrap.sh                   # 一条命令安装 / 升级
+scripts/                       # install / validate / viktor-spawn / knowledge + 测试
 ```
 
-开发本仓库：`bash scripts/validate.sh`，`bash scripts/install.test.sh`，`bash scripts/spawn.test.sh`，`bash scripts/knowledge.test.sh`。
+开发本仓库：`bash scripts/validate.sh`，`bash scripts/install.test.sh`，`bash scripts/spawn.test.sh`，`bash scripts/knowledge.test.sh`，`bash scripts/bootstrap.test.sh`。
 
 设计文档：`docs/2026-09-15--v1-redesign.md`、`docs/2026-09-16--flow-and-independent-review.md`；审查记录：`docs/2026-09-15--v1-review.md`；验收记录：`docs/2026-09-16--demo-results.md`。
 

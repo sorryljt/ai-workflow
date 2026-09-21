@@ -5,6 +5,12 @@
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- 接入方式改为一条命令：`curl -fsSL …/bootstrap.sh | bash [-s -- vX.Y.Z]`。不再用 submodule，`.workflow/fe-ai-workflow` 是纯文件副本（不带 .git、docs、测试），版本记在 `.workflow/version`；不带参数装最新稳定 tag，升级就是再跑一次；老项目的 submodule 自动转换。`upgrade.sh` 保留为兼容入口，转发给 bootstrap。
+
 ## [1.1.2] - 2026-09-19
 
 ### Fixed
